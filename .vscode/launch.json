@@ -1,0 +1,31 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "ladmig: status",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "laddel_migration.cli",
+      "args": ["status"],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "ladmig: test (db connectivity)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "laddel_migration.cli",
+      "args": ["test"],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Python: current file",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}
