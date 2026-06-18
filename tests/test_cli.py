@@ -26,3 +26,27 @@ def test_test_command_is_registered() -> None:
     result = runner.invoke(app, ["test", "--help"])
     assert result.exit_code == 0
     assert "connectivity" in result.output.lower()
+
+
+def test_build_command_is_registered() -> None:
+    result = runner.invoke(app, ["build", "--help"])
+    assert result.exit_code == 0
+    assert "--file" in result.output
+
+
+def test_verify_command_is_registered() -> None:
+    result = runner.invoke(app, ["verify", "--help"])
+    assert result.exit_code == 0
+    assert "view" in result.output.lower()
+
+
+def test_sql_command_is_registered() -> None:
+    result = runner.invoke(app, ["sql", "--help"])
+    assert result.exit_code == 0
+    assert "--database" in result.output
+
+
+def test_build_missing_sql_dir_fails() -> None:
+    result = runner.invoke(app, ["build", "--sql-dir", "does-not-exist"])
+    assert result.exit_code == 1
+    assert "not found" in result.output.lower()

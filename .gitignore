@@ -44,6 +44,10 @@ ENV/
 # Logs
 *.log
 
+# Throwaway exploration scripts / data (see scratch/README.md)
+scratch/*
+!scratch/README.md
+
 # ----- Visual Studio Code -----
 .vscode/*
 !.vscode/settings.json

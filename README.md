@@ -37,6 +37,30 @@ uv run ladmig test          # check connectivity to source and target databases
 `DB_SOURCE_NAME` / `DB_TARGET_NAME`) and runs `SELECT 1` against each. It exits
 non-zero if any connection fails.
 
+### Building the migration database
+
+The migration is a set of **views** in the writable `target` database that reshape the
+read-only `laddel` source into Ampeco's shape. The DDL lives in `sql/` as numbered
+files (one file per target view). See [`sql/README.md`](sql/README.md) for conventions
+and the **never-drop** rules for source and mapping tables.
+
+```powershell
+uv run ladmig build                                       # run every sql/*.sql in order
+uv run ladmig build --file 301_target_charge_points.sql   # run a single DDL file
+uv run ladmig verify                                      # COUNT(*) sanity check on key views
+```
+
+### Inspecting the databases
+
+```powershell
+uv run ladmig sql "SHOW CREATE VIEW `charge_points`" --database target
+uv run ladmig sql "DESCRIBE `charger`" --database source
+uv run ladmig sql "SELECT * FROM `charger` LIMIT 5" --database source --csv
+```
+
+For anything more involved than a quick query, write a throwaway script under `scratch/`
+(git-ignored). See [`scratch/README.md`](scratch/README.md).
+
 ## Configuration
 
 All runtime configuration comes from environment variables (optionally loaded from a
@@ -68,4 +92,6 @@ The same checks run on every pull request via GitHub Actions (`.github/workflows
 ```
 src/laddel_migration/   # package (CLI, config, logging, db)
 tests/                  # pytest suite
+sql/                    # numbered DDL files that build the migration views
+scratch/                # throwaway exploration scripts (git-ignored)
 ```

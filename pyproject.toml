@@ -31,12 +31,18 @@ dev = [
 src = ["src", "tests"]
 line-length = 100
 target-version = "py314"
+extend-exclude = ["reference", "scratch"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
+[tool.ruff.lint.flake8-bugbear]
+# Typer relies on calls in argument defaults for option/argument declarations.
+extend-immutable-calls = ["typer.Option", "typer.Argument"]
+
 [tool.pyright]
 include = ["src", "tests"]
+exclude = ["reference", "scratch", "**/.venv", "**/__pycache__"]
 pythonVersion = "3.14"
 typeCheckingMode = "standard"
 venvPath = "."
