@@ -19,8 +19,8 @@ drop behaviour:
 | `3xx` | Target views | Views producing the Ampeco-shaped payloads (one file per view). | Dropped & recreated. |
 | `4xx` | Report / quality views | Views for analysis, export and data-quality checks. | Dropped & recreated. |
 
-> **Current state:** only `3xx` target views exist. There are no mapping
-> tables yet — none are created by this project at present.
+> **Current state:** one mapping table (`001_partner_mapping.sql`) plus the
+> `3xx` target views. The `1xx`, `2xx` and `4xx` ranges are not yet used.
 
 ## ⚠️ Never Drop Source or Mapping Tables
 
@@ -66,6 +66,12 @@ significant.)
 
 ## File Inventory
 
+### 0xx — Mapping Tables
+
+| File | Table | Notes |
+|------|-------|-------|
+| `001_partner_mapping.sql` | `target.partner_mapping` | Partner target IDs + migration state. **Never dropped.** |
+
 ### 3xx — Target Views
 
 | File | View | Reads |
@@ -76,7 +82,7 @@ significant.)
 | `304_target_location.sql` | `target.location` | source tables |
 | `305_target_partner_admins.sql` | `target.partner_admins` | source tables |
 | `306_target_partner_contracts.sql` | `target.partner_contracts` | source tables |
-| `307_target_partners.sql` | `target.partners` | source tables |
+| `307_target_partners.sql` | `target.partners` | `laddel.facility` (+ org/contact/customer/price), `target.partner_mapping` |
 | `308_target_subscription_plan.sql` | `target.subscription_plan` | source tables |
 | `309_target_tariff.sql` | `target.tariff` | source tables |
 | `310_target_tariff_groups_and_base_tariff.sql` | `target.tariff_groups_and_base_tariff` | source tables |

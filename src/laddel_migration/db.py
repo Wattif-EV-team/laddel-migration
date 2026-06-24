@@ -61,11 +61,61 @@ def run_query(
 
     Intended for ad-hoc inspection of the source/target databases.
     """
+    logger.debug("SQL query @%s: %s", settings.database, sql)
     with connect(settings) as conn, conn.cursor() as cursor:
         cursor.execute(sql)
         columns = [desc[0] for desc in cursor.description] if cursor.description else []
         rows = cursor.fetchall()
     return columns, list(rows)
+
+
+def fetch_view(settings: DatabaseSettings, view: str) -> list[dict[str, object]]:
+    """Return every row of ``view`` as a list of column-name -> value dicts.
+
+    ``view`` is an internal, trusted identifier (a target view name), quoted
+    with backticks. Used by create-or-update steps to read their payload rows.
+    """
+    columns, rows = run_query(settings, f"SELECT * FROM `{view}`")
+    return [dict(zip(columns, row, strict=True)) for row in rows]
+
+
+def write_mapping(
+    settings: DatabaseSettings,
+    table: str,
+    values: dict[str, object],
+) -> None:
+    """Insert one mapping row, halting the whole run if it does not land.
+
+    Mapping writes are a single ``INSERT`` into an initially-per-resource table.
+    We verify exactly one row was affected and ``raise SystemExit`` otherwise —
+    the dangerous moment is after a resource exists in the target but before its
+    id is persisted, so a doubtful write must stop the pipeline rather than risk
+    an orphaned resource. Callers MUST emit the ``MAPPING_RECORD`` breadcrumb
+    (see :func:`laddel_migration.logging.mapping_breadcrumb`) before calling this.
+    """
+    columns = list(values)
+    column_sql = ", ".join(f"`{c}`" for c in columns)
+    placeholders = ", ".join(["%s"] * len(columns))
+    sql = f"INSERT INTO `{table}` ({column_sql}) VALUES ({placeholders})"
+    params = tuple(values[c] for c in columns)
+    logger.debug("SQL mapping insert @%s: %s params=%s", settings.database, sql, params)
+
+    try:
+        with connect(settings) as conn, conn.cursor() as cursor:
+            cursor.execute(sql, params)
+            if cursor.rowcount != 1:
+                raise SystemExit(
+                    f"Mapping INSERT into `{table}` affected {cursor.rowcount} row(s) "
+                    f"(expected 1); halting to prevent an orphaned target resource."
+                )
+            conn.commit()
+    except SystemExit:
+        raise
+    except Exception as exc:  # noqa: BLE001 - any failure here is an integrity risk
+        raise SystemExit(
+            f"Mapping write to `{table}` failed ({values}): {exc} - "
+            f"halting to prevent orphaned resources."
+        ) from exc
 
 
 def execute_script(settings: DatabaseSettings, sql_text: str) -> None:
@@ -75,6 +125,7 @@ def execute_script(settings: DatabaseSettings, sql_text: str) -> None:
     result set produced is drained so the connection is left ready for reuse.
     DDL in MySQL is auto-committed, but we commit explicitly for safety.
     """
+    logger.debug("SQL script @%s (%d chars)", settings.database, len(sql_text))
     with connect(settings, multi_statements=True) as conn, conn.cursor() as cursor:
         cursor.execute(sql_text)
         # Drain any result sets so the cursor/connection is left clean.

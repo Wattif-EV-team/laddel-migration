@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import typer
@@ -9,7 +10,7 @@ import typer
 from . import __version__
 from .config import Settings, load_settings
 from .db import check_connection, execute_script, run_query
-from .logging import configure_logging, get_logger
+from .logging import configure_logging, get_logger, render_banner, supports_unicode
 
 app = typer.Typer(
     name="ladmig",
@@ -43,18 +44,37 @@ KEY_VIEWS: tuple[str, ...] = (
 )
 
 
+# The logging level chosen by the root callback, reused by commands that add a
+# file handler (e.g. ``run``) so they don't downgrade an explicit ``--verbose``.
+_LOG_LEVEL: str = "INFO"
+
+# Whether output should be ASCII-only with no colour/emoji, set by ``--plain``.
+# Reused by commands for the banner, option echo, logging and the run report.
+_PLAIN: bool = False
+
+
 @app.callback()
 def main(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
+    plain: bool = typer.Option(
+        False,
+        "--plain",
+        help="ASCII-only output: no colour, emoji or banners. For CI, agents and tests.",
+    ),
 ) -> None:
     """Initialise logging for all commands."""
-    configure_logging("DEBUG" if verbose else "INFO")
+    global _LOG_LEVEL, _PLAIN
+    _LOG_LEVEL = "DEBUG" if verbose else "INFO"
+    # Force plain output when the console codec can't encode our glyphs (e.g. a
+    # Windows cp1252 terminal), so we degrade to ASCII instead of crashing.
+    _PLAIN = plain or not supports_unicode(sys.stdout)
+    configure_logging(_LOG_LEVEL, plain=_PLAIN)
 
 
 @app.command()
 def status() -> None:
     """Print the application status and version."""
-    typer.echo(f"laddel-migration {__version__} — ready")
+    typer.echo(f"laddel-migration {__version__} - ready")
 
 
 @app.command()
@@ -153,6 +173,112 @@ def verify() -> None:
     if failures:
         raise typer.Exit(code=1)
     typer.echo("All key views verified.")
+
+
+@app.command()
+def run(
+    profile: str | None = typer.Option(
+        None,
+        "--profile",
+        "-p",
+        help="Named step profile to run (e.g. 'all', 'ampeco', 'partners'). Defaults to 'all'.",
+    ),
+    step: list[str] | None = typer.Option(
+        None,
+        "--step",
+        "-s",
+        help="Run a specific step by name; repeatable. Combines with --profile.",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Build and log payloads without calling the API or writing mappings.",
+    ),
+) -> None:
+    """Run create-or-update migration steps against the target system.
+
+    Steps are run in dependency order. A mapping-write failure aborts the run
+    immediately (to avoid orphaned remote resources); per-row business errors
+    are collected and reported, and make the command exit non-zero.
+    """
+    from .clients.ampeco import AmpecoClient
+    from .config import require_ampeco
+    from .runner.context import RunContext
+    from .runner.orchestrator import has_errors, report, run_steps
+
+    _print_banner()
+    _echo_run_options(profile, step, dry_run=dry_run)
+
+    log_path = configure_logging(_LOG_LEVEL, log_to_file=True, script="run", plain=_PLAIN)
+    if log_path is not None:
+        typer.echo(f"Logging to {log_path}")
+
+    settings = load_settings()
+    names = tuple(step) if step else None
+
+    client = None
+    if dry_run:
+        typer.echo("DRY-RUN: no API calls or mapping writes will be made.")
+    else:
+        client = AmpecoClient(require_ampeco(settings))
+
+    ctx = RunContext(settings=settings, client=client, dry_run=dry_run)
+    try:
+        results = run_steps(ctx, profile=profile, names=names)
+    except KeyError as exc:
+        typer.echo(f"FAIL {exc}")
+        raise typer.Exit(code=2) from exc
+
+    typer.echo(report(results, plain=_PLAIN))
+    if has_errors(results):
+        raise typer.Exit(code=1)
+
+
+def _print_banner() -> None:
+    """Print the start-up banner (coloured unless ``--plain``)."""
+    art = render_banner("LADMIG")
+    subtitle = "laddel -> Ampeco migration" if _PLAIN else "laddel \u2192 Ampeco migration"
+    if _PLAIN:
+        typer.echo(art)
+        typer.echo(f"{subtitle}  v{__version__}")
+    else:
+        typer.secho(art, fg=typer.colors.CYAN, bold=True)
+        typer.secho(f"{subtitle}  v{__version__}", fg=typer.colors.BRIGHT_BLACK)
+
+
+def _echo_run_options(profile: str | None, step: list[str] | None, *, dry_run: bool) -> None:
+    """Echo the effective run options so a run is self-documenting."""
+    options = {
+        "profile": profile or "all",
+        "steps": ", ".join(step) if step else "(from profile)",
+        "dry-run": str(dry_run),
+        "verbose": str(_LOG_LEVEL == "DEBUG"),
+        "plain": str(_PLAIN),
+    }
+    heading = "Run options:"
+    if _PLAIN:
+        typer.echo(heading)
+        for key, value in options.items():
+            typer.echo(f"  {key}: {value}")
+    else:
+        typer.secho(heading, fg=typer.colors.CYAN, bold=True)
+        for key, value in options.items():
+            typer.echo(f"  {typer.style(key, fg=typer.colors.BRIGHT_BLACK)}: {value}")
+
+
+@app.command()
+def steps() -> None:
+    """List the registered migration steps and the available run profiles."""
+    from .runner.registry import PROFILES, STEPS
+
+    typer.echo("Steps (in run order):")
+    for item in STEPS:
+        suffix = f" - {item.description}" if item.description else ""
+        typer.echo(f"  {item.name}{suffix}")
+
+    typer.echo("\nProfiles:")
+    for name, members in PROFILES.items():
+        typer.echo(f"  {name}: {', '.join(members)}")
 
 
 @app.command()

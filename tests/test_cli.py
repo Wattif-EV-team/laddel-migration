@@ -50,3 +50,17 @@ def test_build_missing_sql_dir_fails() -> None:
     result = runner.invoke(app, ["build", "--sql-dir", "does-not-exist"])
     assert result.exit_code == 1
     assert "not found" in result.output.lower()
+
+
+def test_run_command_is_registered() -> None:
+    result = runner.invoke(app, ["run", "--help"])
+    assert result.exit_code == 0
+    assert "--dry-run" in result.output
+    assert "--profile" in result.output
+
+
+def test_steps_lists_partners_and_profiles() -> None:
+    result = runner.invoke(app, ["steps"])
+    assert result.exit_code == 0
+    assert "partners" in result.output
+    assert "all" in result.output

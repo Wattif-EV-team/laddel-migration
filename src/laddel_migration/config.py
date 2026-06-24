@@ -40,11 +40,31 @@ class DatabaseSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class AmpecoSettings:
+    """Connection settings for the Ampeco Public API."""
+
+    base_url: str
+    api_token: str
+    requests_per_minute: int = 1000
+
+    @property
+    def safe_base_url(self) -> str:
+        """The base URL, safe to log (it carries no secret)."""
+        return self.base_url
+
+
+@dataclass(frozen=True, slots=True)
 class Settings:
-    """Top-level application settings."""
+    """Top-level application settings.
+
+    ``ampeco`` is ``None`` when the Ampeco environment variables are not set, so
+    database-only commands (build, verify, sql) work without API credentials.
+    Use :func:`require_ampeco` from code that needs to call the API.
+    """
 
     source_db: DatabaseSettings
     target_db: DatabaseSettings
+    ampeco: AmpecoSettings | None
 
 
 def load_settings(*, load_env: bool = True) -> Settings:
@@ -77,4 +97,38 @@ def load_settings(*, load_env: bool = True) -> Settings:
         password=password,
         database=os.environ.get("DB_TARGET_NAME", "target"),
     )
-    return Settings(source_db=source_db, target_db=target_db)
+    ampeco = _load_ampeco()
+    return Settings(source_db=source_db, target_db=target_db, ampeco=ampeco)
+
+
+def _load_ampeco() -> AmpecoSettings | None:
+    """Build :class:`AmpecoSettings` from the environment, or ``None`` if unset.
+
+    Returns ``None`` only when *neither* Ampeco variable is set. If exactly one
+    is set the configuration is half-finished, so we raise rather than silently
+    proceed without credentials.
+    """
+    base_url = os.environ.get("AMPECO_BASE_URL")
+    api_token = os.environ.get("AMPECO_API_TOKEN")
+    if not base_url and not api_token:
+        return None
+    if not base_url or not api_token:
+        raise RuntimeError(
+            "Incomplete Ampeco configuration: set both AMPECO_BASE_URL and "
+            "AMPECO_API_TOKEN (or neither)."
+        )
+    return AmpecoSettings(
+        base_url=base_url.rstrip("/"),
+        api_token=api_token,
+        requests_per_minute=int(os.environ.get("AMPECO_REQUESTS_PER_MINUTE", "1000")),
+    )
+
+
+def require_ampeco(settings: Settings) -> AmpecoSettings:
+    """Return the Ampeco settings, raising a clear error if they are unset."""
+    if settings.ampeco is None:
+        raise RuntimeError(
+            "Ampeco API is not configured. Set AMPECO_BASE_URL and "
+            "AMPECO_API_TOKEN in your environment or .env file."
+        )
+    return settings.ampeco
