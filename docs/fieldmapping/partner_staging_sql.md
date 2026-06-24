@@ -36,8 +36,7 @@ facility → facility_information (PK facility_id) → price_information (PK pri
 
 ```sql
 UPDATE organization o
-SET o.migration_status = 'READY',
-    o.migration_date    = CURRENT_DATE
+SET o.migration_status = 'READY'
 WHERE o.migration_status IN ('UNDEFINED', 'MIGRATE')   -- never touch DONE / DO_NOT_MIGRATE
   -- exactly one distinct customer across all of the org's facilities
   AND (
