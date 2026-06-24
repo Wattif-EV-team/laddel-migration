@@ -46,6 +46,17 @@ source-side details there as illustrative only, not authoritative for our schema
 
 See `reference/README.md` for details.
 
+## Databases & schemas
+
+Two MySQL databases, and we never blur the line between them:
+
+- **`laddel`** — the **source** database. Read-only. All source data lives here; views
+  reference it as `` `laddel`.`<table>` ``.
+- **`target`** — the **writable** database. It holds **everything we produce**: the
+  **target views** (Ampeco-shaped payloads), the **mapping tables** (target-system IDs +
+  migration state), and any **reports** (analysis / quality views). Nothing we create
+  lives anywhere but `target`.
+
 ## Migration database (`sql/`)
 
 The migration is built as **views** in the writable `target` database that reshape the
@@ -72,8 +83,9 @@ uv run ladmig verify                      # COUNT(*) sanity check on key views
 
 ## Inspecting the database & scratch scripts
 
-To inspect live schema or data, use the reusable CLI helper — do not hand-roll
-connection code:
+**`uv run ladmig` is the way to do all project-specific database work** — building views,
+verifying, and ad-hoc inspection. Do not hand-roll connection code; use the reusable CLI
+helper:
 
 ```powershell
 uv run ladmig sql "SHOW CREATE VIEW `charge_points`" --database target
@@ -81,7 +93,8 @@ uv run ladmig sql "DESCRIBE `charger`" --database source
 uv run ladmig sql "SELECT * FROM `charger` LIMIT 5" --database source --csv
 ```
 
-For multi-step exploration or one-off chores, write a **throwaway** script in `scratch/`
-(git-ignored except its README). Reuse `laddel_migration.config.load_settings` and
-`laddel_migration.db` helpers; never import scratch scripts from package code. Anything
-you'd run more than a few times should become a real `ladmig` subcommand instead.
+When the CLI isn't enough — multi-step exploration or one-off research chores — you MAY
+write an **ephemeral throwaway** script in `scratch/` (git-ignored except its README).
+Reuse `laddel_migration.config.load_settings` and `laddel_migration.db` helpers; never
+import scratch scripts from package code. Anything you'd run more than a few times should
+graduate into a real `ladmig` subcommand instead.
