@@ -36,6 +36,7 @@ KEY_VIEWS: tuple[str, ...] = (
     "partner_contracts",
     "partners",
     "subscription_plan",
+    "sitetracker_accounts",
     "tariff",
     "tariff_groups_and_base_tariff",
     "user_group_members",
@@ -79,7 +80,7 @@ def status() -> None:
 
 @app.command()
 def test() -> None:
-    """Check connectivity to the configured MySQL databases."""
+    """Check connectivity to the configured MySQL databases (and SiteTracker)."""
     settings = load_settings()
     failures = 0
     for label, db in (("source", settings.source_db), ("target", settings.target_db)):
@@ -93,9 +94,22 @@ def test() -> None:
             typer.echo(f"FAIL {label}: {db.safe_dsn} -> {exc}")
             failures += 1
 
+    # When SiteTracker is configured, confirm the OAuth password grant works by
+    # fetching a token. Skipped silently when its credentials are not set.
+    if settings.sitetracker is not None:
+        from .clients.sitetracker import SiteTrackerClient
+
+        st = settings.sitetracker
+        try:
+            SiteTrackerClient(st).authenticate()
+            typer.echo(f"OK   sitetracker: {st.safe_instance_url}")
+        except Exception as exc:  # noqa: BLE001 - report any auth error to the user
+            typer.echo(f"FAIL sitetracker: {st.safe_instance_url} -> {exc}")
+            failures += 1
+
     if failures:
         raise typer.Exit(code=1)
-    typer.echo("All database connections succeeded.")
+    typer.echo("All connections succeeded.")
 
 
 def _discover_sql_files(sql_dir: Path, file: str | None) -> list[Path]:
@@ -202,7 +216,7 @@ def run(
     are collected and reported, and make the command exit non-zero.
     """
     from .clients.ampeco import AmpecoClient
-    from .config import require_ampeco
+    from .clients.sitetracker import SiteTrackerClient
     from .runner.context import RunContext
     from .runner.orchestrator import has_errors, report, run_steps
 
@@ -216,13 +230,20 @@ def run(
     settings = load_settings()
     names = tuple(step) if step else None
 
+    # Build whichever target-system clients are configured; a step that needs an
+    # unconfigured client fails clearly via RunContext.client_for. In a dry run
+    # no clients are built (and none are used).
     client = None
+    sitetracker = None
     if dry_run:
         typer.echo("DRY-RUN: no API calls or mapping writes will be made.")
     else:
-        client = AmpecoClient(require_ampeco(settings))
+        if settings.ampeco is not None:
+            client = AmpecoClient(settings.ampeco)
+        if settings.sitetracker is not None:
+            sitetracker = SiteTrackerClient(settings.sitetracker)
 
-    ctx = RunContext(settings=settings, client=client, dry_run=dry_run)
+    ctx = RunContext(settings=settings, client=client, sitetracker=sitetracker, dry_run=dry_run)
     try:
         results = run_steps(ctx, profile=profile, names=names)
     except KeyError as exc:

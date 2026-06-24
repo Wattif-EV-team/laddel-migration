@@ -54,17 +54,43 @@ class AmpecoSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class SiteTrackerSettings:
+    """Connection settings for the SiteTracker (Salesforce) REST API.
+
+    Auth is the standard Salesforce OAuth2 *password grant* against a Connected
+    App; the client fetches a bearer token from ``token_url`` and calls the
+    sObject REST API under ``instance_url``.
+    """
+
+    token_url: str
+    instance_url: str
+    client_id: str
+    client_secret: str
+    username: str
+    password: str
+    api_version: str = "v63.0"
+    requests_per_minute: int = 1000
+
+    @property
+    def safe_instance_url(self) -> str:
+        """The instance URL, safe to log (it carries no secret)."""
+        return self.instance_url
+
+
+@dataclass(frozen=True, slots=True)
 class Settings:
     """Top-level application settings.
 
-    ``ampeco`` is ``None`` when the Ampeco environment variables are not set, so
-    database-only commands (build, verify, sql) work without API credentials.
-    Use :func:`require_ampeco` from code that needs to call the API.
+    ``ampeco`` / ``sitetracker`` are ``None`` when their environment variables
+    are not set, so database-only commands (build, verify, sql) work without any
+    API credentials. Use :func:`require_ampeco` / :func:`require_sitetracker`
+    from code that needs to call the respective API.
     """
 
     source_db: DatabaseSettings
     target_db: DatabaseSettings
     ampeco: AmpecoSettings | None
+    sitetracker: SiteTrackerSettings | None = None
 
 
 def load_settings(*, load_env: bool = True) -> Settings:
@@ -98,7 +124,13 @@ def load_settings(*, load_env: bool = True) -> Settings:
         database=os.environ.get("DB_TARGET_NAME", "target"),
     )
     ampeco = _load_ampeco()
-    return Settings(source_db=source_db, target_db=target_db, ampeco=ampeco)
+    sitetracker = _load_sitetracker()
+    return Settings(
+        source_db=source_db,
+        target_db=target_db,
+        ampeco=ampeco,
+        sitetracker=sitetracker,
+    )
 
 
 def _load_ampeco() -> AmpecoSettings | None:
@@ -132,3 +164,60 @@ def require_ampeco(settings: Settings) -> AmpecoSettings:
             "AMPECO_API_TOKEN in your environment or .env file."
         )
     return settings.ampeco
+
+
+# Environment variables that configure the SiteTracker (Salesforce) API. All
+# except the api version are required together; the api version has a default.
+_SITETRACKER_REQUIRED = (
+    ("token_url", "SITETRACKER_TOKEN_URL"),
+    ("instance_url", "SITETRACKER_INSTANCE_URL"),
+    ("client_id", "SITETRACKER_CLIENT_ID"),
+    ("client_secret", "SITETRACKER_CLIENT_SECRET"),
+    ("username", "SITETRACKER_USERNAME"),
+    ("password", "SITETRACKER_PASSWORD"),
+)
+
+
+def _load_sitetracker() -> SiteTrackerSettings | None:
+    """Build :class:`SiteTrackerSettings` from the environment, or ``None``.
+
+    Returns ``None`` only when *none* of the required variables are set. If some
+    but not all are set the configuration is half-finished, so we raise rather
+    than silently proceed without credentials.
+    """
+    values = {field: os.environ.get(var) for field, var in _SITETRACKER_REQUIRED}
+    present = [v for v in values.values() if v]
+    if not present:
+        return None
+    missing = [
+        var
+        for (field, var), value in zip(_SITETRACKER_REQUIRED, values.values(), strict=True)
+        if not value
+    ]
+    if missing:
+        raise RuntimeError(
+            "Incomplete SiteTracker configuration: missing "
+            + ", ".join(missing)
+            + " (set all SITETRACKER_* variables or none)."
+        )
+    return SiteTrackerSettings(
+        token_url=values["token_url"],  # type: ignore[arg-type]
+        instance_url=values["instance_url"].rstrip("/"),  # type: ignore[union-attr]
+        client_id=values["client_id"],  # type: ignore[arg-type]
+        client_secret=values["client_secret"],  # type: ignore[arg-type]
+        username=values["username"],  # type: ignore[arg-type]
+        password=values["password"],  # type: ignore[arg-type]
+        api_version=os.environ.get("SITETRACKER_API_VERSION", "v63.0"),
+        requests_per_minute=int(os.environ.get("SITETRACKER_REQUESTS_PER_MINUTE", "1000")),
+    )
+
+
+def require_sitetracker(settings: Settings) -> SiteTrackerSettings:
+    """Return the SiteTracker settings, raising a clear error if they are unset."""
+    if settings.sitetracker is None:
+        raise RuntimeError(
+            "SiteTracker API is not configured. Set the SITETRACKER_* variables "
+            "(token URL, instance URL, client id/secret, username, password) in "
+            "your environment or .env file."
+        )
+    return settings.sitetracker

@@ -12,6 +12,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from ..steps.ampeco import partners
+from ..steps.sitetracker import accounts as sitetracker_accounts
 from .context import RunContext, StepResult
 
 
@@ -25,7 +26,14 @@ class Step:
 
 
 # Ordered so that a resource is created before anything that references it.
-STEPS: tuple[Step, ...] = (Step("partners", partners.run, "Create or update Ampeco partners"),)
+STEPS: tuple[Step, ...] = (
+    Step("partners", partners.run, "Create or update Ampeco partners"),
+    Step(
+        "sitetracker_accounts",
+        sitetracker_accounts.run,
+        "Create or update SiteTracker (Salesforce) accounts",
+    ),
+)
 
 # Named subsets, selected with `ladmig run --profile <name>`. "all" always means
 # every registered step in order.
@@ -33,6 +41,8 @@ PROFILES: dict[str, tuple[str, ...]] = {
     "all": tuple(step.name for step in STEPS),
     "ampeco": ("partners",),
     "partners": ("partners",),
+    "sitetracker": ("sitetracker_accounts",),
+    "sitetracker_accounts": ("sitetracker_accounts",),
 }
 
 _STEPS_BY_NAME: dict[str, Step] = {step.name: step for step in STEPS}

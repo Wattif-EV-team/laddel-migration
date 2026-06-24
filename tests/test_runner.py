@@ -72,3 +72,20 @@ def test_report_includes_totals_and_errors() -> None:
 def test_has_errors_reflects_row_errors() -> None:
     assert orchestrator.has_errors([StepResult(step="a", errors=["x"])]) is True
     assert orchestrator.has_errors([StepResult(step="a")]) is False
+
+
+class TestClientFor:
+    def test_returns_matching_client(self) -> None:
+        ctx = RunContext(settings=None, client="ampeco-client", sitetracker="st-client")  # type: ignore[arg-type]
+        assert ctx.client_for("ampeco") == "ampeco-client"
+        assert ctx.client_for("sitetracker") == "st-client"
+
+    def test_raises_when_client_unconfigured(self) -> None:
+        ctx = RunContext(settings=None, client=None, sitetracker=None)  # type: ignore[arg-type]
+        with pytest.raises(RuntimeError, match="not configured for this run"):
+            ctx.client_for("sitetracker")
+
+    def test_raises_on_unknown_target_system(self) -> None:
+        ctx = RunContext(settings=None, client=None)  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="unknown target system"):
+            ctx.client_for("nope")

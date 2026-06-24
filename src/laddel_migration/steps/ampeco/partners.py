@@ -73,6 +73,7 @@ class PartnersResource:
     key_column = "mapping_key"
     id_column = "target_partner_id"
     path = _PARTNERS_PATH
+    target_system = "ampeco"
 
     def build_payload(self, row: dict[str, Any]) -> dict[str, Any]:
         flat: dict[str, Any] = {}

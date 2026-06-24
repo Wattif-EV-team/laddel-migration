@@ -18,6 +18,7 @@ class _FakeResource:
     key_column = "mapping_key"
     id_column = "target_widget_id"
     path = "/public-api/resources/widgets/v1.0"
+    target_system = "ampeco"
 
     def build_payload(self, row: dict[str, Any]) -> dict[str, Any]:
         if row.get("explode"):

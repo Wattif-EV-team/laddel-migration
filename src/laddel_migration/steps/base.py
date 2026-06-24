@@ -31,6 +31,7 @@ class Resource(Protocol):
     key_column: str
     id_column: str
     path: str
+    target_system: str
 
     def build_payload(self, row: dict[str, Any]) -> dict[str, Any]:
         """Turn one view row into the target API request body."""
@@ -106,8 +107,8 @@ def _process_row(
             )
             result.skipped += 1
             return
-        assert ctx.client is not None  # not dry_run => client present
-        ctx.client.update(resource.path, target_id, payload)
+        client = ctx.client_for(resource.target_system)
+        client.update(resource.path, target_id, payload)
         result.updated += 1
         logger.info(
             "[%s] updated %s (id=%s)", resource.name, label, target_id, extra={"icon": "🔄"}
@@ -119,8 +120,7 @@ def _process_row(
         result.skipped += 1
         return
 
-    assert ctx.client is not None
-    data = ctx.client.create(resource.path, payload)
+    data = ctx.client_for(resource.target_system).create(resource.path, payload)
     new_id = data["id"]
     # Breadcrumb BEFORE the mapping write so a lost write is recoverable.
     mapping_breadcrumb(logger, str(row[resource.key_column]), new_id)
