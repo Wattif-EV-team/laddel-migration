@@ -21,8 +21,8 @@ from ..base import run_create_or_update
 _PARTNERS_PATH = "/public-api/resources/partners/v2.0"
 
 # Payload columns emitted by `target.partners`, in API order. Mapping/source
-# helper columns (mapping_key, source_label, project_code, target_partner_id)
-# are deliberately excluded.
+# helper columns (mapping_key, source_label, target_partner_id) are
+# deliberately excluded.
 _STRING_FIELDS: tuple[str, ...] = (
     "name",
     "businessName",
@@ -39,6 +39,7 @@ _STRING_FIELDS: tuple[str, ...] = (
     "contactDetails_billing_contactPerson",
     "contactDetails_billing_email",
     "receiptsPrefix",
+    "invoiceNumberPrefix",
     "options_userVisibility",
     "options_settlementReportBreakdown",
     "notifications_billing_settlementReportLanguage",

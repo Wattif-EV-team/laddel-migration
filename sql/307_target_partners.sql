@@ -3,7 +3,13 @@
 -- Depends on: target.partner_mapping (001), read-only `laddel` source.
 -- Drop-and-recreate. Reads from the read-only `laddel` source database.
 --
--- Grain: one partner per facility (first batch = MDU / SUBSCRIPTION).
+-- Grain: one partner per `laddel.customer`. A customer is in scope if it is
+-- linked — via facility_contact -> facility -> organization — to ANY
+-- organization flagged migration_status = 'READY'. The organization is joined
+-- via a GROUP BY customer_id derived table, so there is exactly one row per
+-- customer (customer -> organization is many-to-one in the source; no fan-out).
+-- migration_project_code is deliberately NOT used (it is being removed from the
+-- source facility table).
 -- Maps `laddel` onto the Ampeco "create partner" payload
 -- (POST /public-api/resources/partners/v2.0). See docs/fieldmapping/partner.md.
 --
@@ -19,21 +25,11 @@ DROP VIEW IF EXISTS `target`.`partners`;
 CREATE OR REPLACE VIEW `target`.`partners` AS
 SELECT
     -- -- SOURCE ----------------------------------------------------------------
-    CONCAT('Laddel|Facility|', f.facility_id)                       AS mapping_key,
+    CONCAT('Laddel|Customer|', c.customer_id)                       AS mapping_key,
     CONCAT(
-        CASE
-            WHEN REGEXP_REPLACE(o.organization_name, '^[\\p{Z}\\p{C}]+|[\\p{Z}\\p{C}]+$', '')
-               = REGEXP_REPLACE(f.facility_name, '^[\\p{Z}\\p{C}]+|[\\p{Z}\\p{C}]+$', '')
-            THEN REGEXP_REPLACE(o.organization_name, '^[\\p{Z}\\p{C}]+|[\\p{Z}\\p{C}]+$', '')
-            ELSE CONCAT(
-                REGEXP_REPLACE(o.organization_name, '^[\\p{Z}\\p{C}]+|[\\p{Z}\\p{C}]+$', ''),
-                '/',
-                REGEXP_REPLACE(f.facility_name, '^[\\p{Z}\\p{C}]+|[\\p{Z}\\p{C}]+$', '')
-            )
-        END,
-        ' (fac=', f.facility_id, ', org=', o.organization_id, ', cust=', c.customer_id, ')'
+        REGEXP_REPLACE(c.name, '^[\\p{Z}\\p{C}]+|[\\p{Z}\\p{C}]+$', ''),
+        ' (cust=', c.customer_id, ')'
     )                                                               AS source_label,
-    f.migration_project_code                                        AS project_code,
 
     -- -- TARGET ID(S) -----------------------------------------------------------
     pm.target_partner_id                                            AS target_partner_id,
@@ -41,11 +37,22 @@ SELECT
     -- -- PAYLOAD (Ampeco field names, 1:1, in API order) ----------------------
     -- Top-level / identity
     REGEXP_REPLACE(c.name, '^[\\p{Z}\\p{C}]+|[\\p{Z}\\p{C}]+$', '') AS `name`,
-    CONCAT(
-        REGEXP_REPLACE(o.organization_name, '^[\\p{Z}\\p{C}]+|[\\p{Z}\\p{C}]+$', ''),
-        ' [', f.migration_project_code, ']'
-    )                                                               AS `businessName`,
-    f.migration_project_code                                        AS `externalId`,
+    -- businessName: "Organization Name [Customer Name]", collapsed to a single
+    -- name when the organization and customer names are identical. Both operands
+    -- are collated to utf8mb4_0900_ai_ci to avoid an "illegal mix of collations"
+    -- (organization and customer tables use different default collations).
+    CASE
+        WHEN org.organization_name
+           = REGEXP_REPLACE(c.name, '^[\\p{Z}\\p{C}]+|[\\p{Z}\\p{C}]+$', '')
+             COLLATE utf8mb4_0900_ai_ci
+        THEN org.organization_name
+        ELSE CONCAT(
+            org.organization_name,
+            ' [', REGEXP_REPLACE(c.name, '^[\\p{Z}\\p{C}]+|[\\p{Z}\\p{C}]+$', '')
+                  COLLATE utf8mb4_0900_ai_ci, ']'
+        )
+    END                                                             AS `businessName`,
+    NULL                                                            AS `externalId`,
     COALESCE(REPLACE(TRIM(c.organization_number), ' ', ''), '')     AS `regNo`,
     CASE
         WHEN c.vat_registered = 1
@@ -73,9 +80,13 @@ SELECT
     )                                                               AS `contactDetails_billing_email`,
     NULL                                                            AS `contactDetails_billing_phone`,
 
-    -- Fees & numbering (receiptsStartingNumber deliberately never emitted)
+    -- Fees & numbering (receiptsStartingNumber deliberately never emitted).
+    -- Prefixes are derived from customer_id (e.g. `L0123-`): non-blank and
+    -- globally unique, satisfying invoiceNumberPrefix's minLength/uniqueness.
+    -- TODO: replace the placeholder `L####-` scheme with the final prefix.
     0                                                               AS `monthlyPlatformFee`,
-    f.migration_project_code                                        AS `receiptsPrefix`,
+    CONCAT('L', LPAD(c.customer_id, 4, '0'), '-')                   AS `receiptsPrefix`,
+    CONCAT('L', LPAD(c.customer_id, 4, '0'), '-')                   AS `invoiceNumberPrefix`,
 
     -- Options
     'all'                                                           AS `options_userVisibility`,
@@ -101,19 +112,22 @@ SELECT
     REGEXP_REPLACE(TRIM(c.KID), '[^0-9]', '')                       AS `bankDetails_bankCode`,
     REGEXP_REPLACE(TRIM(c.account_number), '[^0-9]', '')            AS `bankDetails_bankAccountNumber`
 
-FROM `laddel`.`facility` f
-JOIN `laddel`.`organization` o
-    ON o.organization_id = f.organization_id
-JOIN `laddel`.`facility_contact` fc
-    ON fc.facility_id = f.facility_id
-JOIN `laddel`.`customer` c
-    ON c.customer_id = fc.customer_id
-LEFT JOIN `laddel`.`facility_information` fi
-    ON fi.facility_id = f.facility_id
-LEFT JOIN `laddel`.`price_information` pi
-    ON pi.price_id = fi.price_id
+FROM `laddel`.`customer` c
+-- One row per customer: the derived table groups by customer_id and gates on a
+-- READY organization (customer -> organization is many-to-one in the source).
+JOIN (
+    SELECT
+        fc.customer_id                                                     AS customer_id,
+        -- Force the customer-table collation so businessName's `=` / CONCAT
+        -- against c.name below does not raise an "illegal mix of collations".
+        MIN(REGEXP_REPLACE(o.organization_name, '^[\\p{Z}\\p{C}]+|[\\p{Z}\\p{C}]+$', '')
+            COLLATE utf8mb4_0900_ai_ci)                                    AS organization_name
+    FROM `laddel`.`facility_contact` fc
+    JOIN `laddel`.`facility`     f ON f.facility_id     = fc.facility_id
+    JOIN `laddel`.`organization` o ON o.organization_id = f.organization_id
+    WHERE o.migration_status = 'READY'
+    GROUP BY fc.customer_id
+) org
+    ON org.customer_id = c.customer_id
 LEFT JOIN `target`.`partner_mapping` pm
-    ON pm.mapping_key = CONCAT('Laddel|Facility|', f.facility_id)
-WHERE o.migration_status       = 'READY'
-  AND f.migration_project_code IS NOT NULL
-  AND pi.priceModel            = 'SUBSCRIPTION';
+    ON pm.mapping_key = CONCAT('Laddel|Customer|', c.customer_id);

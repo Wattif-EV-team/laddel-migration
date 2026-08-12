@@ -167,3 +167,23 @@ def translations(row: dict[str, Any], prefix: str) -> dict[str, Any]:
         if key.startswith(prefix) and value is not None:
             result[key[len(prefix) :]] = value
     return result
+
+
+def translation_list(row: dict[str, Any], prefix: str) -> list[dict[str, Any]]:
+    """Fold ``prefix``-suffixed columns into an Ampeco ``[{locale, translation}]`` list.
+
+    ``translation_list(row, "name_")`` turns ``name_en``/``name_nb-NO`` columns
+    into ``[{"locale": "en", "translation": ...}, {"locale": "nb-NO", ...}]``.
+    Columns whose value is ``None`` or an empty/whitespace string are skipped, so
+    a translation that is missing in the source produces no entry (and an empty
+    list is later dropped by :func:`prune_none` when the caller omits it).
+    """
+    result: list[dict[str, Any]] = []
+    for key, value in row.items():
+        if not key.startswith(prefix) or value is None:
+            continue
+        text = str(value)
+        if text.strip() == "":
+            continue
+        result.append({"locale": key[len(prefix) :], "translation": text})
+    return result

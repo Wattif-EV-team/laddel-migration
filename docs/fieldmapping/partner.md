@@ -1,8 +1,9 @@
 # Field mapping — Partner (create)
 
-> **Status:** Mapping **locked** for the **first batch (MDU)** — all review questions
-> (Q1–Q7) resolved (Q7 deferred). Maps the **`laddel`** source onto the Ampeco **create
-> partner** payload. Companion staging SQL lives in
+> **Status:** Mapping updated — **grain changed to `laddel.customer`** (one partner per
+> customer). `migration_project_code` is **no longer used** (it is being removed from the
+> source `facility` table). Maps the **`laddel`** source onto the Ampeco **create partner**
+> payload. Companion staging SQL lives in
 > [partner_staging_sql.md](partner_staging_sql.md).
 
 ## Endpoint & payload source
@@ -15,38 +16,43 @@
   `POST /public-api/resources/partners/v2.0/{partner}/notes` — and need their own target
   view + migration script (see [Deferred](#deferred--separate-work) below).
 
-## Scope — first batch (MDU)
+## Scope
 
-- **Grain: one partner per `facility`.** `mapping_key = 'Laddel|Partner|' || f.facility_id`.
-- First batch = **MDU** (housing cooperatives): facilities with
-  `priceModel = 'SUBSCRIPTION'`, in organizations flagged `migration_status = 'READY'`
-  and carrying a `migration_project_code`.
+- **Grain: one partner per `laddel.customer`.**
+  `mapping_key = 'Laddel|Customer|' || c.customer_id`.
+- **In scope:** every customer linked — via `facility_contact` → `facility` →
+  `organization` — to **any** organization flagged `migration_status = 'READY'`. No
+  `priceModel` / `migration_project_code` filter is applied (this matches the SiteTracker
+  Account scope in [sitetracker_account.md](sitetracker_account.md)).
+- The organization is joined via a `GROUP BY c.customer_id` derived table, so the view
+  yields exactly **one row per customer** (customer → organization is many-to-one in the
+  source; no fan-out).
 - **Deferred (not first batch):**
-  - Organizations with **multiple customers** → modelled as **sub-operator** resources.
   - **Corporate-billing** customers (linked via `laddel.ev_fleet_contact`, not
     `facility_contact`) → corporate-billing partners.
 
-See [partner_staging_sql.md](partner_staging_sql.md) for the `migration_status` and
-`migration_project_code` staging updates.
+See [partner_staging_sql.md](partner_staging_sql.md) for the `migration_status` staging
+updates (the `migration_project_code` staging is obsolete for this view).
 
 ## Source query
 
 ```sql
-FROM       laddel.facility            f
-JOIN       laddel.organization        o  ON o.organization_id = f.organization_id
-JOIN       laddel.facility_contact    fc ON fc.facility_id    = f.facility_id
-JOIN       laddel.customer            c  ON c.customer_id     = fc.customer_id
-LEFT JOIN  laddel.facility_information fi ON fi.facility_id    = f.facility_id
-LEFT JOIN  laddel.price_information    pi ON pi.price_id       = fi.price_id
-WHERE  o.migration_status       = 'READY'
-  AND  f.migration_project_code IS NOT NULL
-  AND  pi.priceModel            = 'SUBSCRIPTION'
+FROM  laddel.customer c
+JOIN  (
+        SELECT fc.customer_id,
+               MIN(o.organization_name) AS organization_name
+        FROM   laddel.facility_contact fc
+        JOIN   laddel.facility     f ON f.facility_id     = fc.facility_id
+        JOIN   laddel.organization o ON o.organization_id = f.organization_id
+        WHERE  o.migration_status = 'READY'
+        GROUP  BY fc.customer_id
+      ) org ON org.customer_id = c.customer_id
 ```
 
-- Every facility in `facility_contact` has **exactly one** customer (verified), so the
-  grain resolves cleanly to a single contact per partner.
-- `f.migration_project_code` (format `W047L####`) is the **project code** used for
-  `externalId`, `receiptsPrefix`, and `businessName`.
+- The derived table both **gates scope** (customer linked to a `READY` org) and supplies
+  the single `organization_name` per customer without fan-out.
+- `migration_project_code` is **not** referenced anywhere (it is being removed from the
+  source `facility` table).
 
 ## Field mapping
 
@@ -58,8 +64,8 @@ Legend — **Default** = constant we emit; **`c./f./o./pi.`** = source column;
 | API field | Type | Req | Source / value | Notes |
 |---|---|:--:|---|---|
 | `name` | string | **yes** | `c.name` | Company name (NOT NULL in source). |
-| `businessName` | string | no | `o.organization_name || ' [' || f.migration_project_code || ']'` | Name shown to EV drivers/admins, e.g. `Org Name [W047L0001]`. |
-| `externalId` | string | no | `f.migration_project_code` | Project code, e.g. `W047L0001`. |
+| `businessName` | string | no | `CASE WHEN org_name = c.name THEN org_name ELSE org_name \|\| ' [' \|\| c.name \|\| ']' END` | Organization name, with the customer name appended in brackets when they differ, e.g. `Org Name [Customer Name]`. |
+| `externalId` | string | no | `NULL` | Emitted as a static `NULL`; the step prunes it, so no `externalId` is sent. |
 | `regNo` | string | no | `COALESCE(REPLACE(TRIM(c.organization_number), ' ', ''), '')` | Strip spaces & trim; **blank `''` when NULL**. |
 | `vatNo` | string | no | `CASE WHEN c.vat_registered THEN REPLACE(TRIM(c.organization_number), ' ', '') || 'MVA' ELSE '' END` | Always includes the text `MVA` when `vat_registered = 1`; **blank `''` when `vat_registered = 0`**. |
 
@@ -93,9 +99,9 @@ Legend — **Default** = constant we emit; **`c./f./o./pi.`** = source column;
 | API field | Type | Req | Source / value | Notes |
 |---|---|:--:|---|---|
 | `monthlyPlatformFee` | number | no | `0` (Default) | Zero for all in first batch. |
-| `receiptsPrefix` | string | no | `f.migration_project_code` | Project code, effective because `options.supplierOnReceipts = true`. |
+| `receiptsPrefix` | string | no | `'L' \|\| LPAD(c.customer_id, 4, '0') \|\| '-'` | Customer-derived prefix, e.g. `L0123-`; effective because `options.supplierOnReceipts = true`. **TODO:** replace placeholder scheme with the final prefix. |
 | `receiptsStartingNumber` | string | no | **(omit — never send)** | ⚠️ **Do not include** in create **or** update payloads — would reset the receipt counter if receipts already generated. |
-| `invoiceNumberPrefix` | string | no | *(omit)* | Invoices not in use yet. |
+| `invoiceNumberPrefix` | string | no | `'L' \|\| LPAD(c.customer_id, 4, '0') \|\| '-'` | Customer-derived prefix, e.g. `L0123-`; non-blank + globally unique (API requires `minLength: 1` and uniqueness). **TODO:** replace placeholder scheme with the final prefix. |
 | `startingInvoiceNumber` | string | no | *(omit)* | Invoices not in use yet. |
 
 ### Options
@@ -155,8 +161,8 @@ Legend — **Default** = constant we emit; **`c./f./o./pi.`** = source column;
 
 | # | Question | Status |
 |---|---|---|
-| Q1 | **`businessName` format** — `organization_name + ' [' + project_code + ']'`, e.g. `Org Name [W047L0001]`. | ✅ Resolved |
-| Q2 | **Project-code scope** — assign codes to *all* facilities in a READY org (including the 22 mixed orgs' non-`SUBSCRIPTION` facilities). | ✅ Resolved (no restriction) |
+| Q1 | **`businessName` format** — `organization_name`, with the customer name appended in brackets when different, e.g. `Org Name [Customer Name]` (superseded: no longer uses project code). | ✅ Resolved |
+| Q2 | **Project-code scope** — obsolete: `migration_project_code` is no longer used by this view (grain moved to `customer`). | ⚪ Obsolete |
 | Q3 | **`settlementReportBreakdown`** = `by_location_and_partner_contract`. | ✅ Resolved (confirmed valid) |
 | Q4 | **`regNo` / `vatNo`** — `regNo` blank `''` when NULL; `vatNo` = `<orgno>MVA` when `vat_registered = 1`, blank `''` when `0`. | ✅ Resolved |
 | Q5 | **Phone normalisation** — strip spaces & trim. | ✅ Resolved |

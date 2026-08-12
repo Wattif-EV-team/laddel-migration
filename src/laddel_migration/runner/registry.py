@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from ..steps.ampeco import partners
+from ..steps.ampeco import locations, partners
 from ..steps.sitetracker import accounts as sitetracker_accounts
 from .context import RunContext, StepResult
 
@@ -28,6 +28,7 @@ class Step:
 # Ordered so that a resource is created before anything that references it.
 STEPS: tuple[Step, ...] = (
     Step("partners", partners.run, "Create or update Ampeco partners"),
+    Step("locations", locations.run, "Create or update Ampeco locations"),
     Step(
         "sitetracker_accounts",
         sitetracker_accounts.run,
@@ -39,8 +40,9 @@ STEPS: tuple[Step, ...] = (
 # every registered step in order.
 PROFILES: dict[str, tuple[str, ...]] = {
     "all": tuple(step.name for step in STEPS),
-    "ampeco": ("partners",),
+    "ampeco": ("partners", "locations"),
     "partners": ("partners",),
+    "locations": ("locations",),
     "sitetracker": ("sitetracker_accounts",),
     "sitetracker_accounts": ("sitetracker_accounts",),
 }
