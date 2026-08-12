@@ -44,6 +44,11 @@ KEY_VIEWS: tuple[str, ...] = (
     "users",
 )
 
+# A cheap authenticated GET used by ``ladmig test`` to confirm the Ampeco API is
+# reachable and the token is accepted. The Ampeco API has no dedicated ping/health
+# endpoint, so we reuse the partners listing (returns 200 even with zero partners).
+_AMPECO_PING_PATH = "/public-api/resources/partners/v2.0"
+
 
 # The logging level chosen by the root callback, reused by commands that add a
 # file handler (e.g. ``run``) so they don't downgrade an explicit ``--verbose``.
@@ -105,6 +110,20 @@ def test() -> None:
             typer.echo(f"OK   sitetracker: {st.safe_instance_url}")
         except Exception as exc:  # noqa: BLE001 - report any auth error to the user
             typer.echo(f"FAIL sitetracker: {st.safe_instance_url} -> {exc}")
+            failures += 1
+
+    # When Ampeco is configured, confirm the API is reachable and the bearer
+    # token is accepted by making one cheap authenticated GET. Skipped silently
+    # when its credentials are not set.
+    if settings.ampeco is not None:
+        from .clients.ampeco import AmpecoClient
+
+        am = settings.ampeco
+        try:
+            AmpecoClient(am).get(_AMPECO_PING_PATH)
+            typer.echo(f"OK   ampeco: {am.safe_base_url}")
+        except Exception as exc:  # noqa: BLE001 - report any API error to the user
+            typer.echo(f"FAIL ampeco: {am.safe_base_url} -> {exc}")
             failures += 1
 
     if failures:
