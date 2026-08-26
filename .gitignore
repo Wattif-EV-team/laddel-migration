@@ -43,6 +43,7 @@ ENV/
 
 # Logs
 *.log
+log/
 
 # Throwaway exploration scripts / data (see scratch/README.md)
 scratch/*
