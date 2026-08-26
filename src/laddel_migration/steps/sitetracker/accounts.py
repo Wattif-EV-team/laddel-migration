@@ -3,9 +3,9 @@
 Source of truth is the ``target.sitetracker_accounts`` view
 (``sql/314_target_sitetracker_accounts.sql``), which already encodes the
 SQL-side business rules (grain = one Account per ``laddel.customer``, scope =
-customers linked to a ``READY`` organization, field shaping/cleaning). This
-module's only job is to turn each view row into the Salesforce Account payload
-and to describe the mapping write.
+customers linked to a ``READY``/``MIGRATE`` organization, field
+shaping/cleaning). This module's only job is to turn each view row into the
+Salesforce Account payload and to describe the mapping write.
 
 Idempotency is by ``mapping_key`` only — there is no SOQL lookup / adopt, so an
 unmapped row is always a fresh create (see docs/fieldmapping/sitetracker_account.md).
@@ -54,7 +54,12 @@ class SiteTrackerAccountsResource:
 
     def build_payload(self, row: dict[str, Any]) -> dict[str, Any]:
         flat: dict[str, Any] = {field: coerce(row.get(field), str) for field in _STRING_FIELDS}
-        # Drop empty/None so we never overwrite a Salesforce field with a blank.
+        # Strip NULLs only: a column the view left NULL must be omitted rather
+        # than sent as `null`. `prune_none` deliberately KEEPS empty strings
+        # (see payload.prune_none); that is safe because we never PATCH a
+        # record we did not create ourselves (no SOQL adopt — see
+        # docs/fieldmapping/sitetracker_account.md), so a blank cannot clobber
+        # third-party data.
         return prune_none(flat)
 
     def mapping_values(self, row: dict[str, Any], target_id: object) -> dict[str, object]:

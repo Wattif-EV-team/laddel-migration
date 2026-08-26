@@ -14,7 +14,7 @@ from laddel_migration.steps.sitetracker.accounts import SiteTrackerAccountsResou
 def _view_row() -> dict[str, Any]:
     """A row shaped like `target.sitetracker_accounts` output."""
     return {
-        "mapping_key": "Laddel|SiteTrackerAccount|42",
+        "mapping_key": "Laddel|Customer|42",
         "source_label": "Acme AS (cust=42)",
         "target_sf_account_id": None,
         "Name": "Acme AS",
@@ -45,7 +45,7 @@ def test_build_payload_is_flat_with_underscored_field_names() -> None:
     }
 
 
-def test_build_payload_omits_blank_optional_fields() -> None:
+def test_build_payload_omits_null_but_keeps_empty_string_fields() -> None:
     row = _view_row()
     row["Email__c"] = None
     row["Phone"] = None
@@ -63,7 +63,7 @@ def test_build_payload_omits_blank_optional_fields() -> None:
 def test_mapping_values_uses_key_and_returned_id() -> None:
     values = SiteTrackerAccountsResource().mapping_values(_view_row(), "001AB000003xyzAB")
     assert values == {
-        "mapping_key": "Laddel|SiteTrackerAccount|42",
+        "mapping_key": "Laddel|Customer|42",
         "target_sf_account_id": "001AB000003xyzAB",
     }
 

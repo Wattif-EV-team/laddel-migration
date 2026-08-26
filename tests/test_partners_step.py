@@ -10,9 +10,8 @@ from laddel_migration.steps.ampeco.partners import PartnersResource
 def _view_row() -> dict[str, Any]:
     """A row shaped like `target.partners` output (0/1 ints for booleans)."""
     return {
-        "mapping_key": "Laddel|Facility|7",
-        "source_label": "Acme/Fac",
-        "project_code": "P1",
+        "mapping_key": "Laddel|Customer|7",
+        "source_label": "Acme AS (cust=7)",
         "target_partner_id": None,
         "name": "Acme",
         "businessName": "Acme [P1]",
@@ -111,4 +110,4 @@ def test_boolean_fields_are_real_bools_not_ints() -> None:
 
 def test_mapping_values_uses_key_and_returned_id() -> None:
     values = PartnersResource().mapping_values(_view_row(), 1007)
-    assert values == {"mapping_key": "Laddel|Facility|7", "target_partner_id": 1007}
+    assert values == {"mapping_key": "Laddel|Customer|7", "target_partner_id": 1007}

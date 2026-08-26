@@ -14,10 +14,26 @@
 > point to confirm against a live `describe`, not as authoritative for any future
 > laddel work. Re-verify everything before relying on it.
 >
-> **Source artifacts** (read-only copies):
-> - Raw research: [reference/projectsaturn/research-test/sitetracker/SITETRACKER.md](../reference/projectsaturn/research-test/sitetracker/SITETRACKER.md),
+> ✅ **Partial refresh (2026-08-13).** The `sitetracker__Site__c`, `Site_Relation__c`, and
+> `Account` describes were re-fetched **against the live laddel SiteTracker org** (not the
+> Wattif sandbox) and diffed against the snapshots below. The refreshed payloads are
+> tracked in [docs/sitetracker-describes/](sitetracker-describes/) — that folder, not the
+> `reference/` copies, is authoritative for these three sObjects. Confirmed changes are
+> folded into the **Site** section (marked `🆕 2026-08-13`): four new fields
+> (`Operator__c`, `Operator_ID__c`, `Terminated_Date__c`, `previous_CPO__c`) and one changed
+> picklist (`sitetracker__Site_Type__c` gained `HOME CHARGER`). `Site_Relation__c` and
+> `Account` had no changes relevant to fields already documented here (`Account` lost two
+> fields — `Contract__c`, `Settlement_Detail__c` — that were never part of this doc's field
+> list). Everything else below is still the **unverified Wattif-sandbox** baseline.
+>
+> **Source artifacts:**
+> - ✅ **Live laddel describes (authoritative for Site / Site Relation / Account):**
+>   [docs/sitetracker-describes/](sitetracker-describes/). Refresh with
+>   `uv run ladmig sitetracker describe <sObject> --diff --save` (see that folder's
+>   README for the three tracked invocations).
+> - Raw research (read-only copies): [reference/projectsaturn/research-test/sitetracker/SITETRACKER.md](../reference/projectsaturn/research-test/sitetracker/SITETRACKER.md),
 >   [FIELD_ASSETS_RESEARCH.md](../reference/projectsaturn/research-test/sitetracker/FIELD_ASSETS_RESEARCH.md)
-> - Full `describe` payloads (authoritative field lists/picklists): the
+> - Wattif-sandbox `describe` payloads (baseline for the diff, **not** authoritative): the
 >   `sitetracker_describe_*.json` files in that same folder.
 > - API helper module: [reference/projectsaturn/utils/sitetracker_utils.py](../reference/projectsaturn/utils/sitetracker_utils.py)
 
@@ -117,9 +133,15 @@ Each entry in the returned `fields[]` array carries:
 | `picklistValues[].value` | Allowed enum values |
 | `length` | Max character length |
 
-Saved describe snapshots live alongside the research docs (`sitetracker_describe_*.json`);
-use them for an offline field list, but re-run describe against the live org before
-building anything.
+Describe snapshots come in two flavours: the **live laddel org** payloads in
+[docs/sitetracker-describes/](sitetracker-describes/) (authoritative for
+`sitetracker__Site__c`, `Site_Relation__c` and `Account`), and the older **Wattif-sandbox**
+`sitetracker_describe_*.json` files alongside the research docs in `reference/` (offline
+baseline only). Refresh the former with
+`uv run ladmig sitetracker describe <sObject> --diff --save`, or inspect any sObject
+ad-hoc with `uv run ladmig sitetracker describe <sObject>` (add `--json` for the raw
+payload, `uv run ladmig sitetracker list` to discover API names first). Re-run describe
+against the live org before building anything on an sObject not covered above.
 
 ---
 
@@ -128,6 +150,9 @@ building anything.
 ```text
 GET /services/data/v63.0/query/?q={url_encoded_soql}
 ```
+
+Or from the CLI: `uv run ladmig sitetracker soql "<SOQL>"` (auto-paginates, add
+`--limit N` to sample, `--csv` for CSV output).
 
 Response shape: `{ "totalSize": N, "done": true|false, "records": [...] }`. When
 `done = false`, follow `nextRecordsUrl` to paginate.
@@ -239,6 +264,10 @@ A physical site/location.
 | `Client_reference_ID__c` | string | External client ref |
 | `Hubspot_Id__c` | string | |
 | `Price__c` | currency | |
+| `Operator__c` | picklist | 🆕 **2026-08-13**, values changed **2026-08-20** (label strings -> numeric codes). See values below. Confirmed live on the laddel org — not in the Wattif baseline. |
+| `Operator_ID__c` | string | 🆕 **2026-08-13.** Free-text operator identifier; confirmed live on the laddel org. |
+| `Terminated_Date__c` | date | 🆕 **2026-08-13.** Confirmed live on the laddel org. |
+| `previous_CPO__c` | string | 🆕 **2026-08-13.** Confirmed live on the laddel org — note this is a **Site-level** field, distinct from the same-named field on `Site_Relation__c` (see below). |
 
 **Read-only formula fields:** `sitetracker__Full_Address__c`, `sitetracker__Link_to_Map__c`.
 
@@ -248,11 +277,17 @@ A physical site/location.
   `Waiting for grid connection` · `Operational` · `Offline / Not operational` ·
   `Decommissioned` · `Terminated` · `Under Migration`
 - `sitetracker__Site_Type__c`: `AIRPORT` · `ARENA` · `BUSINESS` · `CAMPING` · `CAR_DEALER` ·
-  `CONVENTION_CENTER` · `DEPOT` · `FACTORY` · `FLEET_GARAGE` · `HOSPITAL` · `HOTEL` ·
+  `CONVENTION_CENTER` · `DEPOT` · `FACTORY` · `FLEET_GARAGE` · `HOME CHARGER` 🆕 *(confirmed live
+  2026-08-13 — not in the Wattif baseline)* · `HOSPITAL` · `HOTEL` ·
   `HOUSING_ASSOCIATION` · `MUSEUM` · `OFFICE_BLDG` · `OTHER_ENTERTAINMENT` · `LEISURE PARK` ·
   `PARK` · `PARKING_GARAGE` · `PARKING_LOT` · `RENTAL_CAR_RETURN` · `RESTAURANT` ·
   `REST_STOP` · `SCHOOL` · `GAS_STATION` · `SHOPPING_CENTER` · `STADIUM` · `STREET_PARKING` ·
   `WORKPLACE` · `OTHER`
+- `Operator__c` 🆕 *(confirmed live 2026-08-13, not in the Wattif baseline)* — ⚠️ **values changed
+  2026-08-20**: this picklist's VALUES are now numeric codes, not the label strings below.
+  `value` (`label`): `1` (`Wattif NO`) · `2` (`Wattif AT`) · `3` (`Charge365`) ·
+  `4` (`Wattif SE`) · `5` (`Wattif DE`) · `6` (`Laddel NO`). Send the **value** (e.g. `'6'`
+  for Laddel NO), not the label.
 - `Owner_Type__c`: `W-WattifEV` · `J-Jointly Owned` · `C-ClientOwned` · `Caas` ·
   `Client-owned-SLA`
 - `Load_Management__c`: `OCPP-DLM-1.6J` · `OCPP-DLM-2.0.1` · `OCPP-WATTIF-METER` ·

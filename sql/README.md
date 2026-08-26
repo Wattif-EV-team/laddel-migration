@@ -19,8 +19,8 @@ drop behaviour:
 | `3xx` | Target views | Views producing the Ampeco-shaped payloads (one file per view). | Dropped & recreated. |
 | `4xx` | Report / quality views | Views for analysis, export and data-quality checks. | Dropped & recreated. |
 
-> **Current state:** one mapping table (`001_partner_mapping.sql`) plus the
-> `3xx` target views. The `1xx`, `2xx` and `4xx` ranges are not yet used.
+> **Current state:** both `0xx` mapping tables and `3xx` target views exist —
+> see the [File Inventory](#file-inventory) below.
 
 ## ⚠️ Never Drop Source or Mapping Tables
 
@@ -57,6 +57,16 @@ FROM `laddel`.`<source_table>` ...;
   for source reads. `build` connects with `target` as the default database, so
   cross-database reads from `laddel` must be explicit.
 - No PostgreSQL-isms (no `SET ROLE`, no `::cast`, no schemas-within-schema).
+- **`mapping_key` uses the SOURCE table name, never the target-system name.**
+  The composite key is `Laddel|<SourceTable>|<id>` where `<SourceTable>` is the
+  literal `laddel` table the row's grain is one-per (e.g. `Customer`,
+  `Facility`) — not the target view name, target API resource, or target
+  system (`SiteTrackerAccount`, `Location`, ...). See
+  `docs/MigrationPatternGuide.md` §5.1. `target.partners` (customer-grained,
+  keyed `Laddel|Customer|{id}`) is the reference example; the same
+  `laddel.customer` row also feeds `target.sitetracker_accounts`, which is
+  keyed `Laddel|Customer|{id}` too — same segment, different mapping table, no
+  collision.
 
 ### File ordering
 
@@ -68,9 +78,30 @@ significant.)
 
 ### 0xx — Mapping Tables
 
-| File | Table | Notes |
-|------|-------|-------|
-| `001_partner_mapping.sql` | `target.partner_mapping` | Partner target IDs + migration state. **Never dropped.** |
+| File | Table | Written by |
+|------|-------|------------|
+| `001_partner_mapping.sql` | `target.partner_mapping` | `partners` step |
+| `002_sitetracker_account_mapping.sql` | `target.sitetracker_account_mapping` | `sitetracker_accounts` step |
+| `003_location_mapping.sql` | `target.location_mapping` | `locations` step |
+| `004_sitetracker_site_mapping.sql` | `target.sitetracker_site_mapping` | `sitetracker_sites` step |
+| `005_sitetracker_site_relation_mapping.sql` | `target.sitetracker_site_relation_mapping` | `sitetracker_site_relations` step |
+
+### 2xx — Shared Business-Logic Views
+
+| File | View | Reads | Used by |
+|------|------|-------|---------|
+| `201_facility_migration_eligibility.sql` | `target.facility_migration_eligibility` | `laddel.facility`, `laddel.charger`, `laddel.archived_session` | `304`, `314`, `315`, `316` |
+| `202_facility_external_id.sql` | `target.facility_external_id` | `laddel.facility` | `304`, `401` |
+
+`facility_migration_eligibility` centralises the "should this facility be
+migrated?" rule (no chargers / all chargers inactive / no sessions ever / no
+sessions in the last 6 months → `should_not_migrate`) so target views don't
+re-derive it independently.
+
+`facility_external_id` centralises the externalId/project-code scheme
+(`W047L` + zero-padded facility_id) so it is derived in exactly one place
+instead of being duplicated across the Location target view and the
+migration status report.
 
 ### 3xx — Target Views
 
@@ -79,7 +110,7 @@ significant.)
 | `301_target_charge_points.sql` | `target.charge_points` | `laddel.charger` |
 | `302_target_charging_zones.sql` | `target.charging_zones` | source tables |
 | `303_target_id_tags.sql` | `target.id_tags` | `laddel.rfid` |
-| `304_target_location.sql` | `target.location` | source tables |
+| `304_target_location.sql` | `target.location` | source tables + `003`, `201`, `202` |
 | `305_target_partner_admins.sql` | `target.partner_admins` | source tables |
 | `306_target_partner_contracts.sql` | `target.partner_contracts` | source tables |
 | `307_target_partners.sql` | `target.partners` | `laddel.facility` (+ org/contact/customer/price), `target.partner_mapping` |
@@ -89,6 +120,23 @@ significant.)
 | `311_target_user_group_members.sql` | `target.user_group_members` | source tables |
 | `312_target_user_groups.sql` | `target.user_groups` | source tables |
 | `313_target_users.sql` | `target.users` | source tables |
+| `314_target_sitetracker_accounts.sql` | `target.sitetracker_accounts` | source tables + `002`, `201` |
+| `315_target_sitetracker_sites.sql` | `target.sitetracker_sites` | source tables + `004`, `201` |
+| `316_target_sitetracker_site_relations.sql` | `target.sitetracker_site_relations` | source tables + `002`, `004`, `005`, `201` |
+
+### 4xx — Report / Quality Views
+
+| File | View | Reads |
+|------|------|-------|
+| `401_report_facility_migration_status.sql` | `target.report_facility_migration_status` | `laddel.facility`, `laddel.organization` (+ self-join for the org tree/EV-fleet inheritance), `laddel.charger`, `laddel.archived_session`, `laddel.facility_subscription`, `laddel.facility_contact`, `laddel.customer`, `laddel.facility_information`, `laddel.price_information`, `laddel.organization_ev_fleet_information`, `target.facility_migration_eligibility` (201), `target.facility_external_id` (202) |
+
+`report_facility_migration_status` is a one-row-per-facility migration status
+report: charger/subscription counts, organization migration status/date, a
+4-level organization tree (root leftmost, the facility's own org rightmost),
+last-3-months session/kWh activity, facility contact details, price model and
+EV fleet info (inherited from the nearest ancestor organization that defines
+it, with the source organization named). It has no `mapping_key` — it is not
+an Ampeco payload view, purely for reporting.
 
 ## Building the Database
 

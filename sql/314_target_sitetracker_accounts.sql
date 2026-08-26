@@ -5,8 +5,13 @@
 --
 -- Grain: one Account per `laddel.customer`. A customer is in scope if it is
 -- linked — via facility_contact -> facility -> organization — to ANY
--- organization flagged migration_status = 'READY'. The EXISTS gate yields
--- exactly one row per customer (no fan-out), so no DISTINCT/GROUP BY is needed.
+-- organization flagged migration_status IN ('READY', 'MIGRATE') (widened
+-- 2026-08-13 to match the Site/Site-Relation gate, was 'READY' only), AND that
+-- facility is migration-eligible per `target`.`facility_migration_eligibility`
+-- (201) — i.e. an Account is excluded when ALL of its facilities have no
+-- chargers / all chargers inactive / no sessions ever / no sessions in the
+-- last 6 months. The EXISTS gate yields exactly one row per customer (no
+-- fan-out), so no DISTINCT/GROUP BY is needed.
 --
 -- Maps `laddel` onto the SiteTracker (Salesforce) "create Account" payload
 -- (POST /services/data/vXX.0/sobjects/Account/). See
@@ -32,7 +37,7 @@ DROP VIEW IF EXISTS `target`.`sitetracker_accounts`;
 CREATE OR REPLACE VIEW `target`.`sitetracker_accounts` AS
 SELECT
     -- -- SOURCE ----------------------------------------------------------------
-    CONCAT('Laddel|SiteTrackerAccount|', c.customer_id)             AS mapping_key,
+    CONCAT('Laddel|Customer|', c.customer_id)                       AS mapping_key,
     CONCAT(
         REGEXP_REPLACE(c.name, '^[\\p{Z}\\p{C}]+|[\\p{Z}\\p{C}]+$', ''),
         ' (cust=', c.customer_id, ')'
@@ -44,7 +49,10 @@ SELECT
     -- -- PAYLOAD (Salesforce Account field names, 1:1) ------------------------
     -- Identity
     REGEXP_REPLACE(c.name, '^[\\p{Z}\\p{C}]+|[\\p{Z}\\p{C}]+$', '') AS `Name`,
-    REGEXP_REPLACE(TRIM(c.organization_number), '[^0-9]', '')       AS `Business_Registration_Number__c`,
+    COALESCE(
+        NULLIF(REGEXP_REPLACE(TRIM(c.organization_number), '[^0-9]', ''), ''),
+        '000000000'
+    )                                                               AS `Business_Registration_Number__c`,
     'Customer'                                                      AS `Type`,
 
     -- Billing address
@@ -59,12 +67,14 @@ SELECT
 
 FROM `laddel`.`customer` c
 LEFT JOIN `target`.`sitetracker_account_mapping` sam
-    ON sam.mapping_key = CONCAT('Laddel|SiteTrackerAccount|', c.customer_id)
+    ON sam.mapping_key = CONCAT('Laddel|Customer|', c.customer_id)
 WHERE EXISTS (
     SELECT 1
     FROM `laddel`.`facility_contact` fc
     JOIN `laddel`.`facility`     f ON f.facility_id     = fc.facility_id
     JOIN `laddel`.`organization` o ON o.organization_id = f.organization_id
+    JOIN `target`.`facility_migration_eligibility` fme ON fme.facility_id = f.facility_id
     WHERE fc.customer_id      = c.customer_id
-      AND o.migration_status  = 'READY'
+      AND o.migration_status  IN ('READY', 'MIGRATE')
+      AND fme.should_not_migrate = 0
 );

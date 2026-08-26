@@ -200,6 +200,17 @@ names:
   composite string, e.g. `Proj|Widget|{source_guid}`. It is the join key to the mapping table
   and the key the script writes back under. Make it deterministic from source data so re-runs
   produce the same key.
+  - ⚠️ **The middle segment names the SOURCE table/entity, never the target system's name for
+    it.** Use the literal source table name (e.g. `Customer`, `Facility`) — not the name of the
+    target view, the target API resource, or the target system (`SiteTrackerAccount`,
+    `SiteTrackerSite`, `Location`, ...). A grain of "one X per `source.customer`" gets
+    `Proj|Customer|{id}`, even if the target view/table is called `sitetracker_accounts` and
+    the API resource is Salesforce "Account". This keeps the key meaningful when the *same*
+    source row feeds multiple target views (e.g. `laddel.customer` feeds both `target.partners`
+    as `Laddel|Customer|{id}` and `target.sitetracker_accounts` as `Laddel|Customer|{id}` — same
+    segment, different mapping tables, no collision since each mapping table is its own
+    namespace) and when one target view is later renamed or a second target system is added for
+    the same source entity.
 - **`source_label`** — a human-readable label used **only for logging**. It lets the script log
   something meaningful (e.g. `NORD-12/Charger A3`) without the script knowing the source
   system's ID column names. Compose it from several fields when that gives better context —

@@ -27,7 +27,7 @@
 ## Scope & grain
 
 - **Grain: one location per `facility`** (same grain as Partner).
-  `mapping_key = 'Laddel|Location|' || f.facility_id`.
+  `mapping_key = 'Laddel|Facility|' || f.facility_id`.
 - **Batch gate (decided):** facilities whose organization is `migration_status =
   'READY'`. The view joins `` `laddel`.`organization` `` and filters on that flag
   directly — it does **not** gate on `target.partner_mapping` and does **not** use

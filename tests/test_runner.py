@@ -32,6 +32,57 @@ class TestResolveSteps:
             registry.resolve_steps(names=("nope",))
 
 
+class TestRegistryContents:
+    """Guard the registry against accidental step loss.
+
+    ``TestResolveSteps.test_default_selects_all_profile`` cannot catch a deleted
+    step: ``PROFILES["all"]`` is *derived* from ``STEPS``, so removing a step
+    quietly shrinks both sides and the assertion still passes. These tests pin
+    the expected names literally. Adding a step is meant to fail here \u2014 update
+    the list deliberately.
+    """
+
+    EXPECTED_STEPS = [
+        "partners",
+        "locations",
+        "sitetracker_accounts",
+        "sitetracker_sites",
+        "sitetracker_site_relations",
+    ]
+
+    def test_all_steps_registered_in_dependency_order(self) -> None:
+        assert [s.name for s in registry.STEPS] == self.EXPECTED_STEPS
+
+    def test_all_profile_covers_every_step(self) -> None:
+        assert list(registry.PROFILES["all"]) == self.EXPECTED_STEPS
+
+    def test_every_step_has_a_single_step_profile(self) -> None:
+        # Each step is individually runnable via `--profile <step-name>`.
+        for name in self.EXPECTED_STEPS:
+            assert registry.PROFILES.get(name) == (name,), f"missing profile for {name!r}"
+
+    def test_target_system_profiles(self) -> None:
+        assert registry.PROFILES["ampeco"] == ("partners", "locations")
+        assert registry.PROFILES["sitetracker"] == (
+            "sitetracker_accounts",
+            "sitetracker_sites",
+            "sitetracker_site_relations",
+        )
+
+    def test_sitetracker_dependencies_run_before_site_relations(self) -> None:
+        # Site Relations resolve Site__c/Company__c from the Site and Account
+        # mapping tables, so both must have run first in the same pass.
+        order = [s.name for s in registry.STEPS]
+        assert order.index("sitetracker_accounts") < order.index("sitetracker_site_relations")
+        assert order.index("sitetracker_sites") < order.index("sitetracker_site_relations")
+
+    def test_profiles_reference_only_known_steps(self) -> None:
+        known = {s.name for s in registry.STEPS}
+        for profile, names in registry.PROFILES.items():
+            unknown = set(names) - known
+            assert not unknown, f"profile {profile!r} references unknown step(s): {unknown}"
+
+
 def _ctx() -> RunContext:
     return RunContext(settings=None, client=None, dry_run=True)  # type: ignore[arg-type]
 

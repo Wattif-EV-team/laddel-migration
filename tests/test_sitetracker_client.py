@@ -66,6 +66,10 @@ class _FakeSession:
         self.calls.append(("PATCH", url, json))
         return self._next()
 
+    def delete(self, url: str, timeout: float | None = None) -> _FakeResponse:
+        self.calls.append(("DELETE", url, None))
+        return self._next()
+
 
 def _client(responses: list[_FakeResponse]) -> tuple[SiteTrackerClient, _FakeSession]:
     session = _FakeSession(responses)
@@ -99,6 +103,28 @@ def test_update_targets_id_url_and_returns_none_on_204() -> None:
         "https://acme.my.salesforce.com/services/data/v63.0/sobjects/Account/001X",
         {"BillingCity": "Oslo"},
     )
+
+
+def test_delete_targets_id_url_and_returns_none_on_204() -> None:
+    client, session = _client([_FakeResponse(204, None)])
+
+    result = client.delete("/sobjects/Account", "001X")
+
+    assert result is None
+    assert session.calls[0] == (
+        "DELETE",
+        "https://acme.my.salesforce.com/services/data/v63.0/sobjects/Account/001X",
+        None,
+    )
+
+
+def test_delete_raises_with_salesforce_error_message_on_404() -> None:
+    client, _ = _client(
+        [_FakeResponse(404, [{"message": "Entity is deleted", "errorCode": "NOT_FOUND"}])]
+    )
+
+    with pytest.raises(SiteTrackerError, match="got 404"):
+        client.delete("/sobjects/Account", "001X")
 
 
 def test_create_raises_with_salesforce_error_message() -> None:
@@ -159,3 +185,38 @@ def test_build_session_sets_json_headers_but_no_auth() -> None:
 
     assert session.headers["Content-Type"] == "application/json"
     assert "Authorization" not in session.headers
+
+
+def test_query_paginates_via_next_records_url() -> None:
+    page1 = _FakeResponse(
+        200,
+        {
+            "records": [{"Id": "001A", "attributes": {"type": "Account"}}],
+            "done": False,
+            "nextRecordsUrl": "/services/data/v63.0/query/01g000000000000AAA-2000",
+        },
+    )
+    page2 = _FakeResponse(
+        200,
+        {"records": [{"Id": "001B", "attributes": {"type": "Account"}}], "done": True},
+    )
+    client, session = _client([page1, page2])
+
+    records = client.query("SELECT Id FROM Account")
+
+    assert [r["Id"] for r in records] == ["001A", "001B"]
+    assert session.calls[0][1] == (
+        "https://acme.my.salesforce.com/services/data/v63.0/query/?q=SELECT%20Id%20FROM%20Account"
+    )
+    # The second call must use nextRecordsUrl as-is, not double-prefixed.
+    assert session.calls[1][1] == (
+        "https://acme.my.salesforce.com/services/data/v63.0/query/01g000000000000AAA-2000"
+    )
+
+
+def test_url_does_not_double_prefix_absolute_paths() -> None:
+    client, _ = _client([_FakeResponse(200, {"records": [], "done": True})])
+
+    url = client._url("/services/data/v63.0/query/01g-2000")
+
+    assert url == "https://acme.my.salesforce.com/services/data/v63.0/query/01g-2000"

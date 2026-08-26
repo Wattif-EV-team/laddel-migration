@@ -58,7 +58,7 @@ def test_write_mapping_commits_on_single_row(monkeypatch: pytest.MonkeyPatch) ->
     db.write_mapping(
         _SETTINGS,
         "partner_mapping",
-        {"mapping_key": "Laddel|Facility|7", "target_partner_id": 1007},
+        {"mapping_key": "Laddel|Customer|7", "target_partner_id": 1007},
     )
 
     assert conn.committed is True
@@ -67,7 +67,7 @@ def test_write_mapping_commits_on_single_row(monkeypatch: pytest.MonkeyPatch) ->
     assert sql == (
         "INSERT INTO `partner_mapping` (`mapping_key`, `target_partner_id`) VALUES (%s, %s)"
     )
-    assert params == ("Laddel|Facility|7", 1007)
+    assert params == ("Laddel|Customer|7", 1007)
 
 
 def test_write_mapping_halts_when_zero_rows(monkeypatch: pytest.MonkeyPatch) -> None:

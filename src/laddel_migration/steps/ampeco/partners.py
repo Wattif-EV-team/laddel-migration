@@ -39,7 +39,6 @@ _STRING_FIELDS: tuple[str, ...] = (
     "contactDetails_billing_contactPerson",
     "contactDetails_billing_email",
     "receiptsPrefix",
-    "invoiceNumberPrefix",
     "options_userVisibility",
     "options_settlementReportBreakdown",
     "notifications_billing_settlementReportLanguage",

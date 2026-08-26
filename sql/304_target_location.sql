@@ -7,9 +7,14 @@
 -- "create location" payload (POST /public-api/resources/locations/v2.0,
 -- schema locationV2Create). See docs/fieldmapping/location.md.
 --
--- Batch gate: facilities whose organization is migration_status = 'READY'.
--- externalId is derived from facility_id (W047L + zero-padded id) — the source
--- migration_project_code column is deliberately NOT used.
+-- Batch gate: facilities whose organization is migration_status = 'READY', AND
+-- the facility is migration-eligible per target.facility_migration_eligibility
+-- (201) — excludes facilities with no chargers, all chargers inactive, no
+-- sessions ever, or no sessions in the last 6 months.
+-- externalId comes from target.facility_external_id (202) — the shared
+-- W047L + zero-padded facility_id scheme, also reused by the migration
+-- status report. The source migration_project_code column is deliberately
+-- NOT used.
 --
 -- Layout: SOURCE -> TARGET ID -> PAYLOAD (Ampeco field names, underscores for
 -- nesting; translated fields emit one column per locale, folded to
@@ -25,7 +30,7 @@ DROP VIEW IF EXISTS `target`.`location`;
 CREATE OR REPLACE VIEW `target`.`location` AS
 SELECT
     -- -- SOURCE ----------------------------------------------------------------
-    CONCAT('Laddel|Location|', f.facility_id)                          AS mapping_key,
+    CONCAT('Laddel|Facility|', f.facility_id)                          AS mapping_key,
     CONCAT(
         REGEXP_REPLACE(f.facility_name, '^[\\p{Z}\\p{C}]+|[\\p{Z}\\p{C}]+$', ''),
         ' (fac=', f.facility_id, ')'
@@ -38,7 +43,7 @@ SELECT
     -- Identity
     REGEXP_REPLACE(f.facility_name, '^[\\p{Z}\\p{C}]+|[\\p{Z}\\p{C}]+$', '') AS `name_en`,
     REGEXP_REPLACE(f.facility_name, '^[\\p{Z}\\p{C}]+|[\\p{Z}\\p{C}]+$', '') AS `name_nb-NO`,
-    CONCAT('W047L', LPAD(f.facility_id, 4, '0'))                       AS `externalId`,
+    fei.external_id                                                    AS `externalId`,
 
     -- Geoposition (required; 0,0 placeholders sent as-is for the first iteration)
     a.latitude                                                         AS `geoposition_latitude`,
@@ -87,6 +92,11 @@ JOIN `laddel`.`address` a
     ON a.address_id = fi.address_id
 JOIN `laddel`.`organization` o
     ON o.organization_id = f.organization_id
+JOIN `target`.`facility_migration_eligibility` fme
+    ON fme.facility_id = f.facility_id
+JOIN `target`.`facility_external_id` fei
+    ON fei.facility_id = f.facility_id
 LEFT JOIN `target`.`location_mapping` lm
-    ON lm.mapping_key = CONCAT('Laddel|Location|', f.facility_id)
-WHERE o.migration_status = 'READY';
+    ON lm.mapping_key = CONCAT('Laddel|Facility|', f.facility_id)
+WHERE o.migration_status = 'READY'
+  AND fme.should_not_migrate = 0;

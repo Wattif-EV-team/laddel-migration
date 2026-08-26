@@ -9,7 +9,9 @@
 --     `ADD COLUMN IF NOT EXISTS`, so check information_schema first (the
 --     pattern below) rather than dropping the table.
 --
--- Key format: Laddel|Location|{facility_id}  (one location per facility).
+-- Key format: Laddel|Facility|{facility_id}  (one location per facility). The
+-- key uses the SOURCE table name (`laddel.facility`), not the target-system
+-- entity name — see MigrationPatternGuide.md §5.1.
 --
 -- Written by the create-or-update location script after each create: one INSERT
 -- per location. The id is joined back into `target`.`location`.
@@ -20,7 +22,7 @@
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS `target`.`location_mapping` (
-    -- Composite key emitted by `target`.`location` (Laddel|Location|{facility_id}).
+    -- Composite key emitted by `target`.`location` (Laddel|Facility|{facility_id}).
     mapping_key                       VARCHAR(255) NOT NULL,
 
     -- Ampeco location id returned on create (numeric in Ampeco).

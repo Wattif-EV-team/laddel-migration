@@ -57,15 +57,18 @@ def run_create_or_update(ctx: RunContext, resource: Resource) -> StepResult:
 
     for index, row in enumerate(rows, start=1):
         label = str(row.get("source_label", row.get(resource.key_column, f"row {index}")))
+        progress = f"{index}/{result.total}"
         payload: dict[str, Any] | None = None
         try:
             payload = resource.build_payload(row)
-            _process_row(ctx, resource, row, payload, label, result)
+            _process_row(ctx, resource, row, payload, label, progress, result)
         except SystemExit:
             raise
         except Exception as exc:  # noqa: BLE001 - collect per-row errors, keep going
             result.errors.append(f"{label}: {exc}")
-            logger.error("[%s] %s failed: %s", resource.name, label, exc, extra={"icon": "❌"})
+            logger.error(
+                "[%s] %s %s failed: %s", resource.name, progress, label, exc, extra={"icon": "❌"}
+            )
             # Only on errors do we surface the offending object, to aid triage.
             logger.error(
                 "[%s]   object: %s", resource.name, payload if payload is not None else row
@@ -89,18 +92,20 @@ def _process_row(
     row: dict[str, Any],
     payload: dict[str, Any],
     label: str,
+    progress: str,
     result: StepResult,
 ) -> None:
     target_id = row.get(resource.id_column)
     # The full payload is verbose: keep it at DEBUG (file only) unless something
     # fails, in which case the caller logs it at ERROR.
-    logger.debug("[%s] %s payload=%s", resource.name, label, payload)
+    logger.debug("[%s] %s %s payload=%s", resource.name, progress, label, payload)
 
     if target_id is not None:
         if ctx.dry_run:
             logger.info(
-                "[%s] would update %s (id=%s)",
+                "[%s] %s would update %s (id=%s)",
                 resource.name,
+                progress,
                 label,
                 target_id,
                 extra={"icon": "🔄"},
@@ -111,12 +116,19 @@ def _process_row(
         client.update(resource.path, target_id, payload)
         result.updated += 1
         logger.info(
-            "[%s] updated %s (id=%s)", resource.name, label, target_id, extra={"icon": "🔄"}
+            "[%s] %s updated %s (id=%s)",
+            resource.name,
+            progress,
+            label,
+            target_id,
+            extra={"icon": "🔄"},
         )
         return
 
     if ctx.dry_run:
-        logger.info("[%s] would create %s", resource.name, label, extra={"icon": "✨"})
+        logger.info(
+            "[%s] %s would create %s", resource.name, progress, label, extra={"icon": "✨"}
+        )
         result.skipped += 1
         return
 
@@ -130,4 +142,11 @@ def _process_row(
         resource.mapping_values(row, new_id),
     )
     result.created += 1
-    logger.info("[%s] created %s (id=%s)", resource.name, label, new_id, extra={"icon": "✅"})
+    logger.info(
+        "[%s] %s created %s (id=%s)",
+        resource.name,
+        progress,
+        label,
+        new_id,
+        extra={"icon": "✅"},
+    )

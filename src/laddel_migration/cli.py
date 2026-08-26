@@ -18,6 +18,10 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
+from .cli_sitetracker import sitetracker_app  # noqa: E402
+
+app.add_typer(sitetracker_app, name="sitetracker")
+
 logger = get_logger(__name__)
 
 # Default directory (relative to the current working directory) holding the
@@ -37,11 +41,14 @@ KEY_VIEWS: tuple[str, ...] = (
     "partners",
     "subscription_plan",
     "sitetracker_accounts",
+    "sitetracker_sites",
+    "sitetracker_site_relations",
     "tariff",
     "tariff_groups_and_base_tariff",
     "user_group_members",
     "user_groups",
     "users",
+    "report_facility_migration_status",
 )
 
 # A cheap authenticated GET used by ``ladmig test`` to confirm the Ampeco API is

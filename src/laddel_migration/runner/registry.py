@@ -13,6 +13,8 @@ from dataclasses import dataclass
 
 from ..steps.ampeco import locations, partners
 from ..steps.sitetracker import accounts as sitetracker_accounts
+from ..steps.sitetracker import site_relations as sitetracker_site_relations
+from ..steps.sitetracker import sites as sitetracker_sites
 from .context import RunContext, StepResult
 
 
@@ -34,6 +36,16 @@ STEPS: tuple[Step, ...] = (
         sitetracker_accounts.run,
         "Create or update SiteTracker (Salesforce) accounts",
     ),
+    Step(
+        "sitetracker_sites",
+        sitetracker_sites.run,
+        "Create or update SiteTracker (Salesforce) sites",
+    ),
+    Step(
+        "sitetracker_site_relations",
+        sitetracker_site_relations.run,
+        "Create or update SiteTracker (Salesforce) site relations",
+    ),
 )
 
 # Named subsets, selected with `ladmig run --profile <name>`. "all" always means
@@ -43,8 +55,14 @@ PROFILES: dict[str, tuple[str, ...]] = {
     "ampeco": ("partners", "locations"),
     "partners": ("partners",),
     "locations": ("locations",),
-    "sitetracker": ("sitetracker_accounts",),
+    "sitetracker": (
+        "sitetracker_accounts",
+        "sitetracker_sites",
+        "sitetracker_site_relations",
+    ),
     "sitetracker_accounts": ("sitetracker_accounts",),
+    "sitetracker_sites": ("sitetracker_sites",),
+    "sitetracker_site_relations": ("sitetracker_site_relations",),
 }
 
 _STEPS_BY_NAME: dict[str, Step] = {step.name: step for step in STEPS}

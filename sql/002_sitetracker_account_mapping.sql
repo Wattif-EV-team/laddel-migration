@@ -9,7 +9,9 @@
 --     `ADD COLUMN IF NOT EXISTS`, so check information_schema first rather than
 --     dropping the table.
 --
--- Key format: Laddel|SiteTrackerAccount|{customer_id}  (one Account per customer).
+-- Key format: Laddel|Customer|{customer_id}  (one Account per customer). The
+-- key uses the SOURCE table name (`laddel.customer`), not the target-system
+-- entity name — see MigrationPatternGuide.md §5.1.
 --
 -- Written by the create-or-update SiteTracker account script after each create:
 -- one INSERT per Account. The id is joined back into
@@ -22,7 +24,7 @@
 
 CREATE TABLE IF NOT EXISTS `target`.`sitetracker_account_mapping` (
     -- Composite key emitted by `target`.`sitetracker_accounts`
-    -- (Laddel|SiteTrackerAccount|{customer_id}).
+    -- (Laddel|Customer|{customer_id}).
     mapping_key                       VARCHAR(255) NOT NULL,
 
     -- Salesforce Account id returned on create. Salesforce ids are 15/18-char
