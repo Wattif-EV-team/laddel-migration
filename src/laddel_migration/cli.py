@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
 
 import typer
@@ -49,6 +50,7 @@ KEY_VIEWS: tuple[str, ...] = (
     "user_groups",
     "users",
     "report_facility_migration_status",
+    "report_data_quality_issues",
 )
 
 # A cheap authenticated GET used by ``ladmig test`` to confirm the Ampeco API is
@@ -201,18 +203,24 @@ def verify() -> None:
         return
 
     failures = 0
+    total_elapsed = 0.0
     for view in KEY_VIEWS:
+        start = time.perf_counter()
         try:
             _, rows = run_query(settings.target_db, f"SELECT COUNT(*) FROM `{view}`")
+            elapsed = time.perf_counter() - start
+            total_elapsed += elapsed
             count = rows[0][0] if rows else 0
-            typer.echo(f"OK   {view}: {count}")
+            typer.echo(f"OK   {view}: {count} ({elapsed:.2f}s)")
         except Exception as exc:  # noqa: BLE001 - report any view that fails to query
-            typer.echo(f"FAIL {view}: {exc}")
+            elapsed = time.perf_counter() - start
+            total_elapsed += elapsed
+            typer.echo(f"FAIL {view}: {exc} ({elapsed:.2f}s)")
             failures += 1
 
     if failures:
         raise typer.Exit(code=1)
-    typer.echo("All key views verified.")
+    typer.echo(f"All key views verified in {total_elapsed:.2f}s.")
 
 
 @app.command()
