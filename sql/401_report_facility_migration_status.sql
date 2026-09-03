@@ -2,16 +2,16 @@
 -- View: target.report_facility_migration_status
 -- Report / quality view (4xx). Drop-and-recreate. Reads from the read-only
 -- `laddel` source database plus the shared `target.facility_migration_eligibility`
--- (201) and `target.facility_external_id` (202) views. Not part of the Ampeco
--- payload target views (3xx) — this view has no `mapping_key`/target-id
+-- table (201, materialized — merged with the former 202). Not part of the
+-- Ampeco payload target views (3xx) — this view has no `mapping_key`/target-id
 -- columns, it exists purely for migration reporting.
 --
 -- Grain: one row per `laddel.facility`.
 --
--- project_code reuses `target.facility_external_id` (202) — the same
--- W047L + zero-padded facility_id scheme as the Location view's externalId
--- (304). facility_creation_date/last_session_at are truncated to DATE (no
--- time-of-day).
+-- project_code reuses `target.facility_migration_eligibility` (201) — the
+-- same W047L + zero-padded facility_id scheme as the Location view's
+-- externalId (304). facility_creation_date/last_session_at are truncated to
+-- DATE (no time-of-day).
 --
 -- Migration status/date are attributes of the facility's ORGANIZATION (not the
 -- facility itself) — `laddel.organization.migration_status` /
@@ -124,7 +124,7 @@ SELECT
     -- Facility
     f.facility_id                                       AS facility_id,
     f.facility_name                                      AS facility_name,
-    fei.external_id                                      AS project_code,
+    fme.project_code                                     AS project_code,
     DATE(f.creation_date)                                AS facility_creation_date,
 
     -- Chargers (reusing 201's total/active; inactive derived)
@@ -171,9 +171,7 @@ SELECT
 FROM `laddel`.`facility` f
 JOIN `laddel`.`organization` o
     ON o.organization_id = f.organization_id
-JOIN `target`.`facility_external_id` fei
-    ON fei.facility_id = f.facility_id
-LEFT JOIN `target`.`facility_migration_eligibility` fme
+JOIN `target`.`facility_migration_eligibility` fme
     ON fme.facility_id = f.facility_id
 LEFT JOIN org_levels ol
     ON ol.organization_id = o.organization_id

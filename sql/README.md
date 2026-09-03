@@ -15,12 +15,14 @@ drop behaviour:
 |-------|------|-------------|----------------|
 | `0xx` | Mapping tables | Persistent tables holding old→new ID mappings and migration state. | **NEVER DROP** — `CREATE TABLE IF NOT EXISTS`. |
 | `1xx` | Source normalization views | Views that extract/clean distinct entities from raw source tables. | Dropped & recreated. |
-| `2xx` | Shared business-logic views | Intermediate views centralising transform logic reused by target/report views. | Dropped & recreated. |
+| `2xx` | Shared business-logic views | Intermediate views centralising transform logic reused by target/report views. `201` is a materialized **table** (drop-and-rebuild each `ladmig build`), not a view — see its file header for why. | Dropped & recreated. |
 | `3xx` | Target views | Views producing the Ampeco-shaped payloads (one file per view). | Dropped & recreated. |
 | `4xx` | Report / quality views | Views for analysis, export and data-quality checks. | Dropped & recreated. |
 
 > **Current state:** both `0xx` mapping tables and `3xx` target views exist —
-> see the [File Inventory](#file-inventory) below.
+> see the [File Inventory](#file-inventory) below. `201` is also a table (not
+> a view) as a deliberate performance exception, drop-and-rebuilt exactly
+> like the views around it.
 
 ## ⚠️ Never Drop Source or Mapping Tables
 
@@ -86,22 +88,30 @@ significant.)
 | `004_sitetracker_site_mapping.sql` | `target.sitetracker_site_mapping` | `sitetracker_sites` step |
 | `005_sitetracker_site_relation_mapping.sql` | `target.sitetracker_site_relation_mapping` | `sitetracker_site_relations` step |
 
-### 2xx — Shared Business-Logic Views
+### 2xx — Shared Business-Logic Tables/Views
 
-| File | View | Reads | Used by |
+| File | Object | Reads | Used by |
 |------|------|-------|---------|
-| `201_facility_migration_eligibility.sql` | `target.facility_migration_eligibility` | `laddel.facility`, `laddel.charger`, `laddel.archived_session` | `304`, `314`, `315`, `316` |
-| `202_facility_external_id.sql` | `target.facility_external_id` | `laddel.facility` | `304`, `401` |
+| `201_facility_migration_eligibility.sql` | `target.facility_migration_eligibility` (table, materialized) | `laddel.facility`, `laddel.charger`, `laddel.archived_session` | `304`, `314`, `315`, `316`, `401`, `402` |
 
-`facility_migration_eligibility` centralises the "should this facility be
-migrated?" rule (no chargers / all chargers inactive / no sessions ever / no
-sessions in the last 6 months → `should_not_migrate`) so target views don't
-re-derive it independently.
+`facility_migration_eligibility` centralises ALL shared per-facility business
+logic in one place: the `project_code` scheme (`W047L` + zero-padded
+facility_id, formerly the separate `202_facility_external_id.sql`, where the
+column was called `external_id`) and the
+"should this facility be migrated?" rule (no chargers / all chargers
+inactive / no sessions ever / no sessions in the last 6 months →
+`should_not_migrate`) so downstream views don't re-derive either
+independently. It is a real **table**, not a view — dropped and fully
+rebuilt on every `ladmig build` — because its `archived_session` aggregation
+is expensive (~4.7s, measured via `EXPLAIN ANALYZE`; `archived_session`'s
+`charger_id` index doesn't cover `start_time`) and was previously paid
+independently by all 6 downstream consumers as a plain view. Indexed on
+`facility_id` (PRIMARY KEY), `organization_id`, and `should_not_migrate`.
 
-`facility_external_id` centralises the externalId/project-code scheme
-(`W047L` + zero-padded facility_id) so it is derived in exactly one place
-instead of being duplicated across the Location target view and the
-migration status report.
+The `project_code` column is the canonical per-facility project code and is
+reused verbatim as the Ampeco Location `externalId`, the SiteTracker
+`Site_ID__c`, the Partner Contract `title` prefix, and the migration-status
+report's `project_code`, so the scheme is derived in exactly one place.
 
 ### 3xx — Target Views
 
@@ -110,7 +120,7 @@ migration status report.
 | `301_target_charge_points.sql` | `target.charge_points` | `laddel.charger` |
 | `302_target_charging_zones.sql` | `target.charging_zones` | source tables |
 | `303_target_id_tags.sql` | `target.id_tags` | `laddel.rfid` |
-| `304_target_location.sql` | `target.location` | source tables + `003`, `201`, `202` |
+| `304_target_location.sql` | `target.location` | source tables + `003`, `201` |
 | `305_target_partner_admins.sql` | `target.partner_admins` | source tables |
 | `306_target_partner_contracts.sql` | `target.partner_contracts` | source tables |
 | `307_target_partners.sql` | `target.partners` | `laddel.facility` (+ org/contact/customer/price), `target.partner_mapping` |
@@ -128,7 +138,8 @@ migration status report.
 
 | File | View | Reads |
 |------|------|-------|
-| `401_report_facility_migration_status.sql` | `target.report_facility_migration_status` | `laddel.facility`, `laddel.organization` (+ self-join for the org tree/EV-fleet inheritance), `laddel.charger`, `laddel.archived_session`, `laddel.facility_subscription`, `laddel.facility_contact`, `laddel.customer`, `laddel.facility_information`, `laddel.price_information`, `laddel.organization_ev_fleet_information`, `target.facility_migration_eligibility` (201), `target.facility_external_id` (202) |
+| `401_report_facility_migration_status.sql` | `target.report_facility_migration_status` | `laddel.facility`, `laddel.organization` (+ self-join for the org tree/EV-fleet inheritance), `laddel.charger`, `laddel.archived_session`, `laddel.facility_subscription`, `laddel.facility_contact`, `laddel.customer`, `laddel.facility_information`, `laddel.price_information`, `laddel.organization_ev_fleet_information`, `target.facility_migration_eligibility` (201) |
+| `402_report_data_quality_issues.sql` | `target.report_data_quality_issues` | `laddel.facility`, `laddel.organization`, `laddel.facility_information`, `laddel.address`, `laddel.facility_contact`, `laddel.customer`, `target.facility_migration_eligibility` (201) |
 
 `report_facility_migration_status` is a one-row-per-facility migration status
 report: charger/subscription counts, organization migration status/date, a
@@ -137,6 +148,17 @@ last-3-months session/kWh activity, facility contact details, price model and
 EV fleet info (inherited from the nearest ancestor organization that defines
 it, with the source organization named). It has no `mapping_key` — it is not
 an Ampeco payload view, purely for reporting.
+
+`report_data_quality_issues` is a one-row-per-(entity, issue_type) data
+quality report (long/narrow "quality issues" pattern): missing/placeholder/
+out-of-bounds coordinates, invalid or missing street address/postcode,
+duplicate facility names, invalid customer organization numbers, facilities
+within ~50m of each other, and customers linked to multiple in-scope
+facilities. Scope is `organization.migration_status IN ('MIGRATE',
+'INVESTIGATE', 'READY')` (wider than the 3xx views, which don't include
+`INVESTIGATE`) plus `target.facility_migration_eligibility` (201). Entities
+are described only via source table + source id, never via target-view
+names.
 
 ## Building the Database
 
