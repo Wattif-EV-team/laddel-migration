@@ -8,6 +8,11 @@ emit the mapping breadcrumb, write the mapping atomically, and tally results.
 Per-row business errors are collected and counted so one bad row does not abort
 the run. Integrity failures (a mapping write that does not land) raise
 ``SystemExit`` and stop the whole pipeline — see :func:`db.write_mapping`.
+
+A resource may optionally expose ``skip_reason(row) -> str | None``. Target views
+are kept previewable (they do not filter out rows whose dependencies are not
+migrated yet), so this hook is where a resource declares "this row is not ready
+to be posted". Rows it rejects are counted as skipped and never reach the API.
 """
 
 from __future__ import annotations
@@ -42,6 +47,19 @@ class Resource(Protocol):
         ...
 
 
+def _skip_reason(resource: Resource, row: dict[str, Any]) -> str | None:
+    """Ask ``resource`` whether ``row`` should be held back, if it cares.
+
+    Optional part of the resource contract, so it is looked up dynamically
+    rather than declared on the :class:`Resource` protocol: most resources have
+    no readiness condition and should not have to implement a stub.
+    """
+    hook = getattr(resource, "skip_reason", None)
+    if hook is None:
+        return None
+    return hook(row)
+
+
 def run_create_or_update(ctx: RunContext, resource: Resource) -> StepResult:
     """Run ``resource``'s create-or-update flow and return its :class:`StepResult`."""
     result = StepResult(step=resource.name)
@@ -60,6 +78,18 @@ def run_create_or_update(ctx: RunContext, resource: Resource) -> StepResult:
         progress = f"{index}/{result.total}"
         payload: dict[str, Any] | None = None
         try:
+            reason = _skip_reason(resource, row)
+            if reason is not None:
+                result.skipped += 1
+                logger.warning(
+                    "[%s] %s skipped %s: %s",
+                    resource.name,
+                    progress,
+                    label,
+                    reason,
+                    extra={"icon": "⏭️"},
+                )
+                continue
             payload = resource.build_payload(row)
             _process_row(ctx, resource, row, payload, label, progress, result)
         except SystemExit:
@@ -126,9 +156,7 @@ def _process_row(
         return
 
     if ctx.dry_run:
-        logger.info(
-            "[%s] %s would create %s", resource.name, progress, label, extra={"icon": "✨"}
-        )
+        logger.info("[%s] %s would create %s", resource.name, progress, label, extra={"icon": "✨"})
         result.skipped += 1
         return
 

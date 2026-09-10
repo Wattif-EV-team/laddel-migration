@@ -24,6 +24,12 @@
 -- (e.g. U+2028 LINE SEPARATOR) that plain TRIM() does not remove. We strip any
 -- leading/trailing run of separator (\p{Z}) or control/format (\p{C}) chars with
 -- REGEXP_REPLACE while preserving internal spaces.
+--
+-- postCode fallback: Ampeco rejects a create with 422 "The post code field is
+-- required" when postCode is blank for NO, so a blank/NULL source postal_code is
+-- emitted as '-' to keep the location createable. The underlying source gap is
+-- reported as `has_invalid_postcode` [ERROR] by target.report_data_quality_issues
+-- (402) and must be fixed in the source before go-live.
 -- ============================================================================
 DROP VIEW IF EXISTS `target`.`location`;
 
@@ -63,7 +69,10 @@ SELECT
     REGEXP_REPLACE(a.address, '^[\\p{Z}\\p{C}]+|[\\p{Z}\\p{C}]+$', '')  AS `streetAddress_en`,
     REGEXP_REPLACE(a.address, '^[\\p{Z}\\p{C}]+|[\\p{Z}\\p{C}]+$', '')  AS `streetAddress_nb-NO`,
     REGEXP_REPLACE(a.city, '^[\\p{Z}\\p{C}]+|[\\p{Z}\\p{C}]+$', '')     AS `city`,
-    REGEXP_REPLACE(a.postal_code, '^[\\p{Z}\\p{C}]+|[\\p{Z}\\p{C}]+$', '') AS `postCode`,
+    COALESCE(
+        NULLIF(REGEXP_REPLACE(a.postal_code, '^[\\p{Z}\\p{C}]+|[\\p{Z}\\p{C}]+$', ''), ''),
+        '-'
+    )                                                                  AS `postCode`,
     'NO'                                                               AS `country`,
     ''                                                                 AS `region`,
 

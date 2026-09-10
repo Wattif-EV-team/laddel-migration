@@ -44,6 +44,7 @@ class TestRegistryContents:
 
     EXPECTED_STEPS = [
         "partners",
+        "partner_contracts",
         "locations",
         "sitetracker_accounts",
         "sitetracker_sites",
@@ -62,7 +63,7 @@ class TestRegistryContents:
             assert registry.PROFILES.get(name) == (name,), f"missing profile for {name!r}"
 
     def test_target_system_profiles(self) -> None:
-        assert registry.PROFILES["ampeco"] == ("partners", "locations")
+        assert registry.PROFILES["ampeco"] == ("partners", "partner_contracts", "locations")
         assert registry.PROFILES["sitetracker"] == (
             "sitetracker_accounts",
             "sitetracker_sites",
@@ -75,6 +76,12 @@ class TestRegistryContents:
         order = [s.name for s in registry.STEPS]
         assert order.index("sitetracker_accounts") < order.index("sitetracker_site_relations")
         assert order.index("sitetracker_sites") < order.index("sitetracker_site_relations")
+
+    def test_partners_run_before_partner_contracts(self) -> None:
+        # partnerId is API-required on a partner contract and is resolved from
+        # target.partner_mapping, so partners must have run first.
+        order = [s.name for s in registry.STEPS]
+        assert order.index("partners") < order.index("partner_contracts")
 
     def test_profiles_reference_only_known_steps(self) -> None:
         known = {s.name for s in registry.STEPS}

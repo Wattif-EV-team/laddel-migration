@@ -73,8 +73,8 @@ FROM `laddel`.`<source_table>` ...;
 ### File ordering
 
 If a view depends on another view, give it a higher number so it is created
-later. (All current `3xx` views read only source tables, so order is not yet
-significant.)
+later. (All current `3xx` views read only source tables and `0xx`/`2xx` objects,
+so ordering among the `3xx` files is not yet significant.)
 
 ## File Inventory
 
@@ -87,12 +87,13 @@ significant.)
 | `003_location_mapping.sql` | `target.location_mapping` | `locations` step |
 | `004_sitetracker_site_mapping.sql` | `target.sitetracker_site_mapping` | `sitetracker_sites` step |
 | `005_sitetracker_site_relation_mapping.sql` | `target.sitetracker_site_relation_mapping` | `sitetracker_site_relations` step |
+| `006_partner_contract_mapping.sql` | `target.partner_contract_mapping` | `partner_contracts` step |
 
 ### 2xx — Shared Business-Logic Tables/Views
 
 | File | Object | Reads | Used by |
 |------|------|-------|---------|
-| `201_facility_migration_eligibility.sql` | `target.facility_migration_eligibility` (table, materialized) | `laddel.facility`, `laddel.charger`, `laddel.archived_session` | `304`, `314`, `315`, `316`, `401`, `402` |
+| `201_facility_migration_eligibility.sql` | `target.facility_migration_eligibility` (table, materialized) | `laddel.facility`, `laddel.charger`, `laddel.archived_session` | `304`, `306`, `314`, `315`, `316`, `401`, `402` |
 
 `facility_migration_eligibility` centralises ALL shared per-facility business
 logic in one place: the `project_code` scheme (`W047L` + zero-padded
@@ -122,7 +123,7 @@ report's `project_code`, so the scheme is derived in exactly one place.
 | `303_target_id_tags.sql` | `target.id_tags` | `laddel.rfid` |
 | `304_target_location.sql` | `target.location` | source tables + `003`, `201` |
 | `305_target_partner_admins.sql` | `target.partner_admins` | source tables |
-| `306_target_partner_contracts.sql` | `target.partner_contracts` | source tables |
+| `306_target_partner_contracts.sql` | `target.partner_contracts` | source tables + `001`, `006`, `201` |
 | `307_target_partners.sql` | `target.partners` | `laddel.facility` (+ org/contact/customer/price), `target.partner_mapping` |
 | `308_target_subscription_plan.sql` | `target.subscription_plan` | source tables |
 | `309_target_tariff.sql` | `target.tariff` | source tables |

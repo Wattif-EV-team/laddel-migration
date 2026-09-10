@@ -140,3 +140,63 @@ def test_row_error_is_collected_and_loop_continues(
     assert result.created == 1  # the good row still processed
     assert result.error_count == 1
     assert "bad: bad row" in result.errors[0]
+
+
+class _SkippingResource(_FakeResource):
+    """A resource that declares the optional readiness hook."""
+
+    def skip_reason(self, row: dict[str, Any]) -> str | None:
+        if row.get("parent_id") is None:
+            return "parent not migrated yet"
+        return None
+
+
+def test_skip_reason_holds_row_back_without_calling_the_api(
+    monkeypatch: pytest.MonkeyPatch, captured_mappings: list[tuple[str, dict[str, object]]]
+) -> None:
+    _patch_rows(
+        monkeypatch,
+        [
+            {
+                "mapping_key": "W|6",
+                "source_label": "not-ready",
+                "name": "Six",
+                "parent_id": None,
+                "target_widget_id": None,
+            },
+            {
+                "mapping_key": "W|7",
+                "source_label": "ready",
+                "name": "Seven",
+                "parent_id": 9,
+                "target_widget_id": None,
+            },
+        ],
+    )
+    client = _FakeClient()
+
+    result = base.run_create_or_update(_ctx(client, dry_run=False), _SkippingResource())
+
+    assert result.total == 2
+    assert result.skipped == 1
+    assert result.created == 1
+    assert result.error_count == 0
+    assert client.created == [{"name": "Seven"}]
+    assert captured_mappings == [
+        ("widget_mapping", {"mapping_key": "W|7", "target_widget_id": 555})
+    ]
+
+
+def test_resources_without_the_hook_are_unaffected(
+    monkeypatch: pytest.MonkeyPatch, captured_mappings: list[tuple[str, dict[str, object]]]
+) -> None:
+    _patch_rows(
+        monkeypatch,
+        [{"mapping_key": "W|8", "source_label": "w8", "name": "Eight", "target_widget_id": None}],
+    )
+    client = _FakeClient()
+
+    result = base.run_create_or_update(_ctx(client, dry_run=False), _FakeResource())
+
+    assert result.skipped == 0
+    assert result.created == 1

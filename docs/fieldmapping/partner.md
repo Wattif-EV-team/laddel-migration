@@ -113,8 +113,8 @@ Legend — **Default** = constant we emit; **`c./f./o./pi.`** = source column;
 | `options.allowViewingAllSessionsOfInvitedUsers` | boolean | no | `false` (Default) | |
 | `options.createUsers` | boolean | no | `false` (Default) | |
 | `options.addUserBalance` | boolean | no | `false` (Default) | |
-| `options.supplierOnReceipts` | boolean | no | `true` (Default) | MDU business model is always customer-owned. |
-| `options.supplierOnInvoices` | boolean | no | `true` (Default) | |
+| `options.supplierOnReceipts` | boolean | no | `MAX(pi.priceModel <> 'COMMISSION')` over the customer's in-scope facilities, default `true` | Derived from the partner contract type: `paymentFacilitation` (priceModel `SUBSCRIPTION`/`MARKUP`) ⇒ the partner is the supplier ⇒ `true`; `revenueSharing` (priceModel `COMMISSION`) ⇒ the operator is the supplier ⇒ `false`. Facility scope matches `target.partner_contracts` (306). Conflict rule: **paymentFacilitation wins**; a mixed customer is flagged `has_mixed_contract_types` (ERROR) by the data-quality report (402). |
+| `options.supplierOnInvoices` | boolean | no | same as `supplierOnReceipts` | Kept aligned with `supplierOnReceipts`. |
 | `options.allowToControlTariffs` | boolean | no | `true` (Default) | |
 | `options.allowToControlTariffGroups` | boolean | no | `true` (Default) | |
 | `options.allowToControlCpConfigurations` | boolean | no | `false` (Default) | |

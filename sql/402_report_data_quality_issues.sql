@@ -32,7 +32,11 @@
 --                                               facilities (geocoding fallback constant, not a
 --                                               real location); excluded from has_nearby_facility
 --   has_invalid_address            [ERROR]   - address.address missing/blank or a junk placeholder
---   has_invalid_postcode           [WARNING] - address.postal_code is not exactly 4 digits
+--   has_invalid_postcode           [WARNING/ERROR] - address.postal_code is not exactly 4 digits
+--                                               (ERROR if missing/blank: Ampeco rejects the location
+--                                               create with 422 "The post code field is required";
+--                                               target.location (304) substitutes '-' so the create
+--                                               still succeeds)
 --   has_duplicate_facility_name    [ERROR]   - facility_name not unique among in-scope facilities
 --                                               (SiteTracker Site Name must be unique)
 --   has_invalid_org_number         [ERROR]   - customer.organization_number missing or not 9 digits
@@ -42,6 +46,14 @@
 --                                               coordinates (see above)
 --   has_multiple_facilities        [INFO]    - customer linked to >1 in-scope facility
 --                                               (settlement integration supports 1 location/partner today)
+--   has_mixed_contract_types       [ERROR]   - customer's in-scope facilities map to BOTH
+--                                               partner contract types (paymentFacilitation from
+--                                               price_information.priceModel SUBSCRIPTION/MARKUP,
+--                                               revenueSharing from COMMISSION). Ampeco's
+--                                               "supplier on receipts/invoices" is a single
+--                                               per-partner flag, so the two models cannot coexist
+--                                               under one partner; target.partners (307) resolves
+--                                               the clash with "paymentFacilitation wins"
 --
 -- Norway bounding box is an approximation of the mainland extent
 -- (lat 57.5-71.5, lon 4.0-31.5) — deliberately excludes Svalbard; revisit if
@@ -63,7 +75,8 @@ WITH eligible_facilities AS (
         f.organization_id                                                    AS organization_id,
         o.organization_name COLLATE utf8mb4_0900_ai_ci                      AS organization_name,
         o.migration_status COLLATE utf8mb4_0900_ai_ci                       AS migration_status,
-        fi.address_id                                                        AS address_id
+        fi.address_id                                                        AS address_id,
+        fi.price_id                                                          AS price_id
     FROM `laddel`.`facility` f
     JOIN `laddel`.`organization` o ON o.organization_id = f.organization_id
     JOIN `laddel`.`facility_information` fi ON fi.facility_id = f.facility_id
@@ -101,6 +114,25 @@ customer_facility_counts AS (
         MIN(migration_status)                                 AS migration_status
     FROM eligible_customers
     GROUP BY customer_id
+),
+
+-- Per-customer partner contract type. Contract type is a per-FACILITY property
+-- in the source (`price_information.priceModel`, mapped by
+-- target.partner_contracts (306): COMMISSION -> revenueSharing, everything else
+-- -> paymentFacilitation) but Ampeco's supplierOnReceipts/supplierOnInvoices is
+-- a single per-PARTNER flag. A customer whose in-scope facilities span both
+-- models therefore cannot be represented faithfully.
+customer_contract_types AS (
+    SELECT
+        fc.customer_id                                                       AS customer_id,
+        COUNT(DISTINCT IF(pi.priceModel = 'COMMISSION',
+                          'revenueSharing', 'paymentFacilitation'))          AS contract_type_count,
+        GROUP_CONCAT(DISTINCT CONCAT(ef.facility_id, '=', pi.priceModel)
+                     COLLATE utf8mb4_0900_ai_ci)                             AS facility_price_models
+    FROM eligible_facilities ef
+    JOIN `laddel`.`facility_contact` fc ON fc.facility_id = ef.facility_id
+    JOIN `laddel`.`price_information` pi ON pi.price_id = ef.price_id
+    GROUP BY fc.customer_id
 ),
 
 facility_coords AS (
@@ -260,15 +292,23 @@ WHERE a.address IS NULL
 UNION ALL
 
 -- ============================================================================
--- has_invalid_postcode (WARNING)
+-- has_invalid_postcode (ERROR if missing/blank, WARNING if malformed)
 -- ============================================================================
 SELECT
-    'WARNING'                                                AS classification,
+    CASE
+        WHEN a.postal_code IS NULL OR TRIM(a.postal_code) = '' THEN 'ERROR'
+        ELSE 'WARNING'
+    END                                                       AS classification,
     'address'                                                 AS entity_type,
     CAST(a.address_id AS CHAR)                                AS entity_id,
     ef.facility_name                                           AS entity_name,
     'has_invalid_postcode'                                     AS issue_type,
-    'Postal code is not exactly 4 digits'                       AS issue_reason,
+    CASE
+        WHEN a.postal_code IS NULL OR TRIM(a.postal_code) = '' THEN
+            'ERROR: postal code is missing - Ampeco rejects the location create with 422 "The post code field is required"; migrated with the ''-'' placeholder instead'
+        ELSE
+            'WARNING: postal code is not exactly 4 digits'
+    END                                                        AS issue_reason,
     CONCAT('postal_code=', COALESCE(a.postal_code COLLATE utf8mb4_0900_ai_ci, 'NULL')) AS referenced_value,
     CAST(ef.facility_id AS CHAR)                                AS facility_id,
     ef.organization_id                                         AS organization_id,
@@ -367,4 +407,27 @@ SELECT
     cfc.migration_status                                        AS migration_status
 FROM `laddel`.`customer` c
 JOIN customer_facility_counts cfc ON cfc.customer_id = c.customer_id
-WHERE cfc.facility_count > 1;
+WHERE cfc.facility_count > 1
+
+UNION ALL
+
+-- ============================================================================
+-- has_mixed_contract_types (ERROR)
+-- ============================================================================
+SELECT
+    'ERROR'                                                   AS classification,
+    'customer'                                                  AS entity_type,
+    CAST(c.customer_id AS CHAR)                                 AS entity_id,
+    c.name COLLATE utf8mb4_0900_ai_ci                           AS entity_name,
+    'has_mixed_contract_types'                                  AS issue_type,
+    'Customer''s in-scope facilities map to BOTH partner contract types (paymentFacilitation and revenueSharing) - Ampeco''s "supplier on receipts/invoices" is a single per-partner flag, so one of the two models will be misrepresented; paymentFacilitation wins' AS issue_reason,
+    CONCAT('contract_type_count=', cct.contract_type_count,
+           ', facility_price_models=', cct.facility_price_models) AS referenced_value,
+    cfc.facility_ids                                            AS facility_id,
+    cfc.organization_id                                         AS organization_id,
+    cfc.organization_name                                       AS organization_name,
+    cfc.migration_status                                        AS migration_status
+FROM `laddel`.`customer` c
+JOIN customer_contract_types cct ON cct.customer_id = c.customer_id
+JOIN customer_facility_counts cfc ON cfc.customer_id = c.customer_id
+WHERE cct.contract_type_count > 1;

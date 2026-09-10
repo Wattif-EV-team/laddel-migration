@@ -1,6 +1,7 @@
 -- ============================================================================
 -- View: target.partners
--- Depends on: target.partner_mapping (001), read-only `laddel` source.
+-- Depends on: target.partner_mapping (001),
+-- target.facility_migration_eligibility (201), read-only `laddel` source.
 -- Drop-and-recreate. Reads from the read-only `laddel` source database.
 --
 -- Grain: one partner per `laddel.customer`. A customer is in scope if it is
@@ -19,6 +20,23 @@
 -- (e.g. U+2028 LINE SEPARATOR) that plain TRIM() does not remove. We strip any
 -- leading/trailing run of separator (\p{Z}) or control/format (\p{C}) chars with
 -- REGEXP_REPLACE while preserving internal spaces.
+--
+-- supplierOnReceipts / supplierOnInvoices are derived from the partner's
+-- contract type, which is a per-facility property in the source
+-- (`price_information.priceModel`) but a per-partner flag in Ampeco:
+--   paymentFacilitation (priceModel SUBSCRIPTION / MARKUP) -> partner is the
+--     supplier, so the flags are true;
+--   revenueSharing      (priceModel COMMISSION)            -> the operator is
+--     the supplier, so the flags are false.
+-- The `contract_type` derived table below therefore mirrors the scope of
+-- target.partner_contracts (306): organization migration_status = 'READY' AND
+-- migration-eligible per target.facility_migration_eligibility (201).
+-- Conflict rule: **paymentFacilitation wins** — a customer whose in-scope
+-- facilities mix both models gets `true`. That situation is a data-quality
+-- defect, not a supported configuration, and is reported as the
+-- `has_mixed_contract_types` ERROR by target.report_data_quality_issues (402).
+-- A customer with no in-scope contract at all falls back to `true` (the
+-- Ampeco/business default) via the COALESCE.
 -- ============================================================================
 DROP VIEW IF EXISTS `target`.`partners`;
 
@@ -93,8 +111,10 @@ SELECT
     0                                                               AS `options_allowViewingAllSessionsOfInvitedUsers`,
     0                                                               AS `options_createUsers`,
     0                                                               AS `options_addUserBalance`,
-    1                                                               AS `options_supplierOnReceipts`,
-    1                                                               AS `options_supplierOnInvoices`,
+    -- See the header note: true unless every in-scope partner contract for
+    -- this customer is revenueSharing (priceModel COMMISSION).
+    COALESCE(ct.has_payment_facilitation, 1)                        AS `options_supplierOnReceipts`,
+    COALESCE(ct.has_payment_facilitation, 1)                        AS `options_supplierOnInvoices`,
     1                                                               AS `options_allowToControlTariffs`,
     1                                                               AS `options_allowToControlTariffGroups`,
     0                                                               AS `options_allowToControlCpConfigurations`,
@@ -129,5 +149,26 @@ JOIN (
     GROUP BY fc.customer_id
 ) org
     ON org.customer_id = c.customer_id
+-- Per-customer contract type, over the same facility scope as
+-- target.partner_contracts (306). `MAX(... <> 'COMMISSION')` is the
+-- "paymentFacilitation wins" rule: 1 if ANY in-scope facility is
+-- SUBSCRIPTION/MARKUP, 0 only when every one of them is COMMISSION. LEFT so a
+-- customer with no in-scope (eligible) facility still gets a row; the COALESCE
+-- at the flag then falls back to 1.
+LEFT JOIN (
+    SELECT
+        fc2.customer_id                          AS customer_id,
+        MAX(pi2.priceModel <> 'COMMISSION')      AS has_payment_facilitation
+    FROM `laddel`.`facility_contact` fc2
+    JOIN `laddel`.`facility`             f2   ON f2.facility_id     = fc2.facility_id
+    JOIN `laddel`.`facility_information` fi2  ON fi2.facility_id    = f2.facility_id
+    JOIN `laddel`.`price_information`    pi2  ON pi2.price_id       = fi2.price_id
+    JOIN `laddel`.`organization`         o2   ON o2.organization_id = f2.organization_id
+    JOIN `target`.`facility_migration_eligibility` fme2 ON fme2.facility_id = f2.facility_id
+    WHERE o2.migration_status = 'READY'
+      AND fme2.should_not_migrate = 0
+    GROUP BY fc2.customer_id
+) ct
+    ON ct.customer_id = c.customer_id
 LEFT JOIN `target`.`partner_mapping` pm
     ON pm.mapping_key = CONCAT('Laddel|Customer|', c.customer_id);

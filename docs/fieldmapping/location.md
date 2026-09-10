@@ -112,7 +112,7 @@ Legend — **Default** = constant we emit; **`f./fi./a.`** = source column;
 | `streetAddress_en` | string | no | `TRIM(a.address)` | Street line only, e.g. `Andøyfaret 31`. Folded into `streetAddress[]`. |
 | `streetAddress_nb-NO` | string | no | *(same as `streetAddress_en`)* | |
 | `city` | string | no | `INITCAP(TRIM(a.city))` | Init-capped — first letter of each word upper, rest lower. ⚠️ MySQL has no `INITCAP`; implement via an expression/helper. |
-| `postCode` | string | no | `TRIM(a.postal_code)` | Required for NO. |
+| `postCode` | string | no | `COALESCE(NULLIF(TRIM(a.postal_code), ''), '-')` | Required for NO — a blank/NULL source value is rejected with `422 The post code field is required`, so it falls back to `'-'`. The source gap is flagged as `has_invalid_postcode` \[ERROR] in the 402 quality report. |
 | `country` | enum | **yes** | `'NO'` (Default) | Source enum is the single literal `'Norway'`; map to ISO `'NO'`. |
 | `region` | string | no | `''` (hard-coded blank) | **Decided:** `a.county` is too dirty to trust — emit an empty string. |
 | `state` | string | no | *(omit)* | Only for US/AU/CA/UM/RO; N/A for Norway. |
