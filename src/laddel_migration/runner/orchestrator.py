@@ -42,16 +42,17 @@ def report(results: list[StepResult], *, plain: bool = False) -> str:
     """Build a consolidated, multi-line summary across all steps."""
     title = "Migration run summary" if plain else "📊 Migration run summary"
     lines = ["", "=" * 60, title, "=" * 60]
-    grand = {"total": 0, "created": 0, "updated": 0, "skipped": 0, "errors": 0}
+    grand = {"total": 0, "created": 0, "adopted": 0, "updated": 0, "skipped": 0, "errors": 0}
     for result in results:
         lines.append(
             f"  {result.step:<24} "
             f"total={result.total} created={result.created} "
-            f"updated={result.updated} skipped={result.skipped} "
-            f"errors={result.error_count}"
+            f"adopted={result.adopted} updated={result.updated} "
+            f"skipped={result.skipped} errors={result.error_count}"
         )
         grand["total"] += result.total
         grand["created"] += result.created
+        grand["adopted"] += result.adopted
         grand["updated"] += result.updated
         grand["skipped"] += result.skipped
         grand["errors"] += result.error_count
@@ -60,8 +61,8 @@ def report(results: list[StepResult], *, plain: bool = False) -> str:
     lines.append(
         f"  {'TOTAL':<24} "
         f"total={grand['total']} created={grand['created']} "
-        f"updated={grand['updated']} skipped={grand['skipped']} "
-        f"errors={grand['errors']}"
+        f"adopted={grand['adopted']} updated={grand['updated']} "
+        f"skipped={grand['skipped']} errors={grand['errors']}"
     )
 
     failed = [r for r in results if r.errors]

@@ -118,7 +118,7 @@ report's `project_code`, so the scheme is derived in exactly one place.
 
 | File | View | Reads |
 |------|------|-------|
-| `301_target_charge_points.sql` | `target.charge_points` | `laddel.charger` |
+| `301_target_charge_points.sql` | `target.charge_points` | source tables + `001`, `003`, `006`, `007`, `201` |
 | `302_target_charging_zones.sql` | `target.charging_zones` | source tables |
 | `303_target_id_tags.sql` | `target.id_tags` | `laddel.rfid` |
 | `304_target_location.sql` | `target.location` | source tables + `003`, `201` |

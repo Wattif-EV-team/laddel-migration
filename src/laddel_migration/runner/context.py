@@ -46,11 +46,17 @@ class RunContext:
 
 @dataclass
 class StepResult:
-    """Mutable tally of what a single step did, plus collected row errors."""
+    """Mutable tally of what a single step did, plus collected row errors.
+
+    ``adopted`` counts rows that had no mapping yet but were found to already
+    exist in the target system under their natural key, and were therefore
+    patched instead of created.
+    """
 
     step: str
     total: int = 0
     created: int = 0
+    adopted: int = 0
     updated: int = 0
     skipped: int = 0
     errors: list[str] = field(default_factory=list)

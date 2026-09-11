@@ -46,6 +46,7 @@ class TestRegistryContents:
         "partners",
         "partner_contracts",
         "locations",
+        "charge_points",
         "sitetracker_accounts",
         "sitetracker_sites",
         "sitetracker_site_relations",
@@ -63,7 +64,12 @@ class TestRegistryContents:
             assert registry.PROFILES.get(name) == (name,), f"missing profile for {name!r}"
 
     def test_target_system_profiles(self) -> None:
-        assert registry.PROFILES["ampeco"] == ("partners", "partner_contracts", "locations")
+        assert registry.PROFILES["ampeco"] == (
+            "partners",
+            "partner_contracts",
+            "locations",
+            "charge_points",
+        )
         assert registry.PROFILES["sitetracker"] == (
             "sitetracker_accounts",
             "sitetracker_sites",

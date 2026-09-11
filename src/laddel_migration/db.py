@@ -56,26 +56,43 @@ def check_connection(settings: DatabaseSettings) -> bool:
 def run_query(
     settings: DatabaseSettings,
     sql: str,
+    params: tuple[object, ...] | None = None,
 ) -> tuple[list[str], list[tuple[object, ...]]]:
     """Run a read query and return ``(columns, rows)``.
 
-    Intended for ad-hoc inspection of the source/target databases.
+    Intended for ad-hoc inspection of the source/target databases. ``params``
+    are bound by the driver as ``%s`` placeholders; never interpolate values
+    into ``sql`` yourself.
     """
-    logger.debug("SQL query @%s: %s", settings.database, sql)
+    logger.debug("SQL query @%s: %s params=%s", settings.database, sql, params)
     with connect(settings) as conn, conn.cursor() as cursor:
-        cursor.execute(sql)
+        cursor.execute(sql, params)
         columns = [desc[0] for desc in cursor.description] if cursor.description else []
         rows = cursor.fetchall()
     return columns, list(rows)
 
 
-def fetch_view(settings: DatabaseSettings, view: str) -> list[dict[str, object]]:
-    """Return every row of ``view`` as a list of column-name -> value dicts.
+def fetch_view(
+    settings: DatabaseSettings,
+    view: str,
+    *,
+    where: str | None = None,
+    params: tuple[object, ...] = (),
+) -> list[dict[str, object]]:
+    """Return the rows of ``view`` as a list of column-name -> value dicts.
 
     ``view`` is an internal, trusted identifier (a target view name), quoted
     with backticks. Used by create-or-update steps to read their payload rows.
+
+    ``where`` is an optional SQL fragment authored by the step itself (never by
+    user input) and is appended verbatim; the values it compares against belong
+    in ``params`` so the driver binds them. A step that runs several passes over
+    the same view uses this to select the subset each pass owns.
     """
-    columns, rows = run_query(settings, f"SELECT * FROM `{view}`")
+    sql = f"SELECT * FROM `{view}`"
+    if where is not None:
+        sql = f"{sql} WHERE {where}"
+    columns, rows = run_query(settings, sql, params or None)
     return [dict(zip(columns, row, strict=True)) for row in rows]
 
 

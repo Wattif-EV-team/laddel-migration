@@ -4,6 +4,9 @@
 > **`laddel`** source onto the Ampeco **create location** payload (`locationV2Create`).
 > The companion target view is implemented in
 > [304_target_location.sql](../../sql/304_target_location.sql) with one row per facility.
+>
+> ⚠️ **One pending change:** the conditional `LocationType:MDU` tag (Q14, decided
+> 2026-09-10) is documented below but **not yet implemented in 304**.
 
 ## Endpoint & payload source
 
@@ -39,8 +42,9 @@
 laddel.facility               f   -- facility_id (PK), facility_name, organization_id,
                                   --   migration_project_code
    └─ laddel.facility_information fi ON fi.facility_id = f.facility_id   -- 1:1
-         └─ laddel.address      a  ON a.address_id = fi.address_id       -- address, postal_code,
-                                  --   city, county, country, latitude, longitude
+         ├─ laddel.address      a  ON a.address_id = fi.address_id       -- address, postal_code,
+         │                        --   city, county, country, latitude, longitude
+         └─ laddel.price_information pi ON pi.price_id = fi.price_id     -- priceModel (LocationType:MDU tag)
 ```
 
 Proposed source query:
@@ -50,6 +54,7 @@ FROM       laddel.facility             f
 JOIN       laddel.facility_information fi ON fi.facility_id = f.facility_id
 JOIN       laddel.address              a  ON a.address_id   = fi.address_id
 JOIN       laddel.organization         o  ON o.organization_id = f.organization_id
+LEFT JOIN  laddel.price_information    pi ON pi.price_id    = fi.price_id  -- LocationType:MDU tag
 -- batch gate: only facilities under a READY organization
 WHERE      o.migration_status = 'READY'
 ```
@@ -69,6 +74,8 @@ WHERE      o.migration_status = 'READY'
 | `facility` | `migration_project_code` | varchar(10) | → `externalId` (only 469/4902 set) |
 | `facility_information` | `information` | varchar(128) | free text, **mostly NULL** — → `description` |
 | `facility_information` | `is_hidden` | tinyint(1) | not used (`status` is deprecated) |
+| `facility_information` | `price_id` | int | join to `price_information` for the `LocationType:MDU` tag |
+| `price_information` | `priceModel` | enum('MARKUP','COMMISSION','SUBSCRIPTION') | `SUBSCRIPTION` → adds tag `LocationType:MDU` |
 | `address` | `address` | varchar(255) | street line, e.g. `Andøyfaret 31` |
 | `address` | `postal_code` | varchar(32) | → `postCode` |
 | `address` | `city` | varchar(32) | → `city` |
@@ -143,8 +150,31 @@ Legend — **Default** = constant we emit; **`f./fi./a.`** = source column;
 | API field | Type | Req | Source / value | Notes |
 |---|---|:--:|---|---|
 | `workingHours.isAlwaysOpen` | boolean | no | `true` (Default) | **Decided:** all locations always open. Emit `workingHours = { "isAlwaysOpen": true }`. |
-| `tags` | string[] | no | `["Owner:Customer","Source:Laddel"]` (Default) | Constant tags. Emitted as a **JSON-array string** column (per reference `305_target_locations.sql`, e.g. `'["Source:MerB2B","Owner:Customer"]'`); the step `json.loads` it into the array. |
+| `tags` | string[] | no | `["Owner:Customer","Source:Laddel"]` **+ `"LocationType:MDU"` when `pi.priceModel = 'SUBSCRIPTION'`** | Emitted as a **JSON-array string** column (per reference `305_target_locations.sql`, e.g. `'["Source:MerB2B","Owner:Customer"]'`); the step `json.loads` it into the array. The MDU tag is **conditional** — see below. |
 | `externalAppData` | object | no | *(omit)* | No source. |
+
+#### `LocationType:MDU` tag (added 2026-09-10)
+
+Subscription-priced facilities are multi-dwelling-unit (residential) sites and are tagged
+accordingly, so the tag matches the one applied to their charge points (see
+[charge_point.md](charge_point.md)). The tag is driven by the same
+`facility_information.price_id → price_information.priceModel` chain already used by
+[306_target_partner_contracts.sql](../../sql/306_target_partner_contracts.sql):
+
+```sql
+CASE WHEN pi.priceModel = 'SUBSCRIPTION'
+     THEN '["Owner:Customer","Source:Laddel","LocationType:MDU"]'
+     ELSE '["Owner:Customer","Source:Laddel"]'
+END AS `tags`
+```
+
+This requires one extra join in [304_target_location.sql](../../sql/304_target_location.sql):
+`LEFT JOIN laddel.price_information pi ON pi.price_id = fi.price_id`
+(`facility_information` is already joined for `information`).
+
+Verified counts in the 304 scope (`READY` + eligible, 441 facilities):
+**SUBSCRIPTION 418 → tagged**, MARKUP 21 and COMMISSION 2 → not tagged.
+The `LEFT JOIN` keeps a missing price row falling through to the untagged branch.
 
 ## Data-quality findings (from sampling 4 902 facilities)
 
@@ -173,3 +203,4 @@ Legend — **Default** = constant we emit; **`f./fi./a.`** = source column;
 | Q11 | **`shortDescription`** — same value as `address_en` (composed full address). | ✅ Resolved |
 | Q12 | **`city`** — init-cap all values (first letter per word). | ✅ Resolved |
 | Q13 | **`tags`** — constant `["Owner:Customer","Source:Laddel"]`, JSON-array string (reference encoding). | ✅ Resolved |
+| Q14 | **`tags` — `LocationType:MDU`** added when `price_information.priceModel = 'SUBSCRIPTION'` (418 / 441 in-scope facilities), to match the charge-point tagging. Needs a `price_information` join in 304. | ✅ Resolved (2026-09-10) — **not yet implemented in 304** |

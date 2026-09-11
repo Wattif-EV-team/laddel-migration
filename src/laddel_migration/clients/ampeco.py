@@ -80,9 +80,21 @@ class AmpecoClient:
     def _url(self, path: str) -> str:
         return f"{self._base_url}{path}"
 
-    def get(self, path: str, *, expected_status: int = 200) -> Any:
-        """GET ``path`` and return the response ``data`` envelope."""
-        response = self._session.get(self._url(path), timeout=self._timeout)
+    def get(
+        self,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        expected_status: int = 200,
+    ) -> Any:
+        """GET ``path`` and return the response ``data`` envelope.
+
+        ``params`` are encoded by ``requests``, which matters for Ampeco's
+        bracketed index filters (``filter[networkId]``). Index endpoints return
+        a list in ``data``; single-resource endpoints return an object.
+        """
+        logger.debug("GET %s params=%s", path, params)
+        response = self._session.get(self._url(path), params=params, timeout=self._timeout)
         return self._handle(response, expected_status, "GET", path)
 
     def create(self, path: str, payload: dict[str, Any], *, expected_status: int = 201) -> Any:

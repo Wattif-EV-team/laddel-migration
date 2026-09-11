@@ -58,7 +58,12 @@ def captured_mappings(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, dict[s
 
 
 def _patch_rows(monkeypatch: pytest.MonkeyPatch, rows: list[dict[str, Any]]) -> None:
-    monkeypatch.setattr(base, "fetch_view", lambda settings, view: rows)
+    """Return the same rows for every read, whatever the pass filter is."""
+    monkeypatch.setattr(
+        base,
+        "fetch_view",
+        lambda settings, view, *, where=None, params=(): rows,
+    )
 
 
 def test_creates_unmapped_row_and_writes_mapping(
@@ -200,3 +205,142 @@ def test_resources_without_the_hook_are_unaffected(
 
     assert result.skipped == 0
     assert result.created == 1
+
+
+class _MultiPassResource(_FakeResource):
+    """A resource that splits its view into two filtered passes."""
+
+    def passes(self) -> tuple[base.Pass, ...]:
+        return (
+            base.Pass(name="first", where="`kind` = %s", params=("a",)),
+            base.Pass(name="second", where="`kind` = %s", params=("b",)),
+        )
+
+
+def test_every_pass_re_reads_the_view_with_its_own_filter(
+    monkeypatch: pytest.MonkeyPatch, captured_mappings: list[tuple[str, dict[str, object]]]
+) -> None:
+    reads: list[tuple[str | None, tuple[object, ...]]] = []
+    rows_by_kind = {
+        "a": [{"mapping_key": "W|a", "source_label": "wa", "name": "A", "target_widget_id": None}],
+        "b": [{"mapping_key": "W|b", "source_label": "wb", "name": "B", "target_widget_id": None}],
+    }
+
+    def fake_fetch(settings: object, view: str, *, where: str | None = None, params: tuple = ()):
+        reads.append((where, params))
+        return rows_by_kind[str(params[0])]
+
+    monkeypatch.setattr(base, "fetch_view", fake_fetch)
+    client = _FakeClient()
+
+    result = base.run_create_or_update(_ctx(client, dry_run=False), _MultiPassResource())
+
+    assert reads == [("`kind` = %s", ("a",)), ("`kind` = %s", ("b",))]
+    assert result.total == 2  # tallies accumulate across passes
+    assert result.created == 2
+    assert client.created == [{"name": "A"}, {"name": "B"}]
+
+
+class _AdoptingResource(_FakeResource):
+    """A resource that can find its rows in the target system by natural key."""
+
+    def lookup_existing(self, ctx: RunContext, row: dict[str, Any]) -> base.Adoption | None:
+        if row.get("natural_key") == "known":
+            return base.Adoption(target_id=99, matched_by="natural_key", snapshot={"id": 99})
+        return None
+
+    def adoption_values(self, row: dict[str, Any], adoption: base.Adoption) -> dict[str, object]:
+        return {"matched_by": adoption.matched_by}
+
+
+def test_unmapped_row_found_in_target_is_adopted_not_recreated(
+    monkeypatch: pytest.MonkeyPatch, captured_mappings: list[tuple[str, dict[str, object]]]
+) -> None:
+    _patch_rows(
+        monkeypatch,
+        [
+            {
+                "mapping_key": "W|9",
+                "source_label": "known",
+                "name": "Nine",
+                "natural_key": "known",
+                "target_widget_id": None,
+            },
+            {
+                "mapping_key": "W|10",
+                "source_label": "new",
+                "name": "Ten",
+                "natural_key": "unknown",
+                "target_widget_id": None,
+            },
+        ],
+    )
+    client = _FakeClient()
+
+    result = base.run_create_or_update(_ctx(client, dry_run=False), _AdoptingResource())
+
+    assert result.adopted == 1
+    assert result.created == 1
+    assert client.updated == [(99, {"name": "Nine"})]  # patched, not re-created
+    assert client.created == [{"name": "Ten"}]
+    # Both outcomes are recorded, so the audit trail covers fresh creates too.
+    assert captured_mappings == [
+        (
+            "widget_mapping",
+            {"mapping_key": "W|9", "target_widget_id": 99, "matched_by": "natural_key"},
+        ),
+        (
+            "widget_mapping",
+            {"mapping_key": "W|10", "target_widget_id": 555, "matched_by": "created"},
+        ),
+    ]
+
+
+def test_lookup_is_not_attempted_in_a_dry_run(
+    monkeypatch: pytest.MonkeyPatch, captured_mappings: list[tuple[str, dict[str, object]]]
+) -> None:
+    _patch_rows(
+        monkeypatch,
+        [
+            {
+                "mapping_key": "W|11",
+                "source_label": "known",
+                "name": "Eleven",
+                "natural_key": "known",
+                "target_widget_id": None,
+            }
+        ],
+    )
+    client = _FakeClient()
+
+    result = base.run_create_or_update(_ctx(client, dry_run=True), _AdoptingResource())
+
+    assert result.skipped == 1
+    assert result.adopted == 0
+    assert client.updated == []
+    assert captured_mappings == []
+
+
+def test_already_mapped_row_never_reaches_the_lookup(
+    monkeypatch: pytest.MonkeyPatch, captured_mappings: list[tuple[str, dict[str, object]]]
+) -> None:
+    _patch_rows(
+        monkeypatch,
+        [
+            {
+                "mapping_key": "W|12",
+                "source_label": "mapped",
+                "name": "Twelve",
+                "natural_key": "known",
+                "target_widget_id": 7,
+            }
+        ],
+    )
+    client = _FakeClient()
+
+    result = base.run_create_or_update(_ctx(client, dry_run=False), _AdoptingResource())
+
+    assert result.updated == 1
+    assert result.adopted == 0
+    assert client.updated == [(7, {"name": "Twelve"})]
+    assert captured_mappings == []

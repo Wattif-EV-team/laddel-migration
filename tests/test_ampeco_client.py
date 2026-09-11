@@ -35,8 +35,13 @@ class _FakeSession:
         self.headers: dict[str, str] = {}
         self.calls: list[tuple[str, str, dict[str, Any] | None]] = []
 
-    def get(self, url: str, timeout: float | None = None) -> _FakeResponse:
-        self.calls.append(("GET", url, None))
+    def get(
+        self,
+        url: str,
+        params: dict[str, object] | None = None,
+        timeout: float | None = None,
+    ) -> _FakeResponse:
+        self.calls.append(("GET", url, params))
         return self.response
 
     def post(
@@ -92,6 +97,22 @@ def test_get_returns_data_on_200() -> None:
     client, _ = _client(_FakeResponse(200, {"data": [{"id": 1}]}))
 
     assert client.get("/public-api/resources/partners/v2.0") == [{"id": 1}]
+
+
+def test_get_passes_index_filters_as_query_params() -> None:
+    """Bracketed filters must go through requests' encoder, not string concat."""
+    client, session = _client(_FakeResponse(200, {"data": [{"id": 1}]}))
+
+    client.get(
+        "/public-api/resources/charge-points/v2.0",
+        params={"filter[networkId]": "EVB-P2309218"},
+    )
+
+    assert session.calls[0] == (
+        "GET",
+        "https://tenant.example.com/public-api/resources/charge-points/v2.0",
+        {"filter[networkId]": "EVB-P2309218"},
+    )
 
 
 def test_build_session_sets_bearer_auth_header() -> None:

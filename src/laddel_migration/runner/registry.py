@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from ..steps.ampeco import locations, partner_contracts, partners
+from ..steps.ampeco import charge_points, locations, partner_contracts, partners
 from ..steps.sitetracker import accounts as sitetracker_accounts
 from ..steps.sitetracker import site_relations as sitetracker_site_relations
 from ..steps.sitetracker import sites as sitetracker_sites
@@ -37,6 +37,11 @@ STEPS: tuple[Step, ...] = (
     ),
     Step("locations", locations.run, "Create or update Ampeco locations"),
     Step(
+        "charge_points",
+        charge_points.run,
+        "Create or update Ampeco charge points (masters, then satellites)",
+    ),
+    Step(
         "sitetracker_accounts",
         sitetracker_accounts.run,
         "Create or update SiteTracker (Salesforce) accounts",
@@ -57,10 +62,11 @@ STEPS: tuple[Step, ...] = (
 # every registered step in order.
 PROFILES: dict[str, tuple[str, ...]] = {
     "all": tuple(step.name for step in STEPS),
-    "ampeco": ("partners", "partner_contracts", "locations"),
+    "ampeco": ("partners", "partner_contracts", "locations", "charge_points"),
     "partners": ("partners",),
     "partner_contracts": ("partner_contracts",),
     "locations": ("locations",),
+    "charge_points": ("charge_points",),
     "sitetracker": (
         "sitetracker_accounts",
         "sitetracker_sites",
