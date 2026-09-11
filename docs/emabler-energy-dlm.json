@@ -1,0 +1,3520 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "eMabler | Energy Management API",
+    "description": "",
+    "termsOfService": "https://www.emabler.com/privacy-policy",
+    "contact": {
+      "name": "eMabler Ltd",
+      "url": "https://www.emabler.com/contact",
+      "email": "hello@emabler.com"
+    },
+    "version": "2.0.1"
+  },
+  "servers": [
+    {
+      "url": "https://api.emabler.net/api/v2/dlm/"
+    }
+  ],
+  "paths": {
+    "/v2/realtime-power": {
+      "get": {
+        "tags": [
+          "RealtimePower"
+        ],
+        "summary": "Get realtime power totals",
+        "description": "Retrieves the latest realtime power values for all of the chargers.",
+        "operationId": "getRealtimePowerTotals",
+        "responses": {
+          "200": {
+            "description": "Realtime power totals successfully retrieved. Total Error indicates the amount of meter values identified as faulty and not included in the total power.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/getRealtimePowerTotalsResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Success"
+          },
+          "400": {
+            "description": "Details of the validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/problemDetails"
+                }
+              }
+            },
+            "x-ms-summary": "Validation Error"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          },
+          "401": {
+            "description": "User not authorized.",
+            "x-ms-summary": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ],
+        "x-ms-visibility": "important"
+      }
+    },
+    "/v2/external-meters": {
+      "post": {
+        "tags": [
+          "ExternalMeter"
+        ],
+        "summary": "Add an external meter",
+        "description": "Adds a new external meter to the specified DLM Group.",
+        "operationId": "addExternalMeter",
+        "requestBody": {
+          "description": "The external meter details.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/addExternalMeterRequestBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "External meter successfully added.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/getExternalMeterResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Success"
+          },
+          "400": {
+            "description": "Details of the validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/problemDetails"
+                }
+              }
+            },
+            "x-ms-summary": "Validation Error"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          },
+          "401": {
+            "description": "User not authorized.",
+            "x-ms-summary": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ],
+        "x-ms-visibility": "important"
+      },
+      "get": {
+        "tags": [
+          "ExternalMeter"
+        ],
+        "summary": "Get external meters",
+        "description": "Retrieves a list of external meters for the specified DLM Group.",
+        "operationId": "getExternalMeters",
+        "parameters": [
+          {
+            "name": "siteId",
+            "in": "query",
+            "description": "ID of the site to retrieve external meters for.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "nullable": true
+            },
+            "x-ms-summary": "Site ID",
+            "x-ms-visibility": "important"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "External meters successfully retrieved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/getExternalMetersResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Success"
+          },
+          "400": {
+            "description": "Details of the validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/problemDetails"
+                }
+              }
+            },
+            "x-ms-summary": "Validation Error"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          },
+          "401": {
+            "description": "User not authorized.",
+            "x-ms-summary": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ],
+        "x-ms-visibility": "important"
+      }
+    },
+    "/v2/external-meters/{meterId}": {
+      "delete": {
+        "tags": [
+          "ExternalMeter"
+        ],
+        "summary": "Delete an external meter",
+        "description": "Deletes the specified external meter.",
+        "operationId": "deleteExternalMeter",
+        "parameters": [
+          {
+            "name": "meterId",
+            "in": "path",
+            "description": "ID of the external meter to delete.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "x-ms-summary": "Meter ID",
+            "x-ms-visibility": "important"
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Details of the validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/problemDetails"
+                }
+              }
+            },
+            "x-ms-summary": "Validation Error"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          },
+          "200": {
+            "description": "External meter successfully deleted.",
+            "x-ms-summary": "Success"
+          },
+          "401": {
+            "description": "User not authorized.",
+            "x-ms-summary": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ],
+        "x-ms-visibility": "important"
+      },
+      "get": {
+        "tags": [
+          "ExternalMeter"
+        ],
+        "summary": "Get an external meter",
+        "description": "Retrieves details of the specified external meter.",
+        "operationId": "getExternalMeter",
+        "parameters": [
+          {
+            "name": "meterId",
+            "in": "path",
+            "description": "ID of the external meter to retrieve.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "x-ms-summary": "Meter ID",
+            "x-ms-visibility": "important"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "External meter successfully retrieved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/externalMeterDto"
+                }
+              }
+            },
+            "x-ms-summary": "Success"
+          },
+          "400": {
+            "description": "Details of the validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/problemDetails"
+                }
+              }
+            },
+            "x-ms-summary": "Validation Error"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          },
+          "401": {
+            "description": "User not authorized.",
+            "x-ms-summary": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ],
+        "x-ms-visibility": "important"
+      },
+      "patch": {
+        "tags": [
+          "ExternalMeter"
+        ],
+        "summary": "Update an external meter",
+        "description": "Updates the specified external meter.",
+        "operationId": "updateExternalMeter",
+        "parameters": [
+          {
+            "name": "meterId",
+            "in": "path",
+            "description": "ID of the external meter to update.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "x-ms-summary": "Meter ID",
+            "x-ms-visibility": "important"
+          }
+        ],
+        "requestBody": {
+          "description": "The updated external meter details.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateExternalMeterRequestBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "External meter successfully updated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/externalMeterDto"
+                }
+              }
+            },
+            "x-ms-summary": "Success"
+          },
+          "400": {
+            "description": "Details of the validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/problemDetails"
+                }
+              }
+            },
+            "x-ms-summary": "Validation Error"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          },
+          "401": {
+            "description": "User not authorized.",
+            "x-ms-summary": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ],
+        "x-ms-visibility": "important"
+      }
+    },
+    "/v2/dlm/sites/{siteId}/charger-currents": {
+      "get": {
+        "tags": [
+          "DLM"
+        ],
+        "summary": "Get DLM site charger currents",
+        "description": "Retrieves a list of DLM charger currents for the specified site.",
+        "operationId": "getDLMSiteChargerCurrents",
+        "parameters": [
+          {
+            "name": "siteId",
+            "in": "path",
+            "description": "ID of the site to retrieve DLM charger currents for.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "x-ms-summary": "Site ID",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start timestamp for the period to be fetched. Default: 7 days ago.",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "x-ms-summary": "Timestamp from",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End timestamp for the period to be fetched. Default: Now.",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "x-ms-summary": "Timestamp to",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "binSize",
+            "in": "query",
+            "description": "Bin size for the data in minutes. Default: 60.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "nullable": true
+            },
+            "x-ms-summary": "Bin Size",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page to be fetched. Default: 1",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true
+            },
+            "x-ms-summary": "Page",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Limit (No. of records per page). Max value: 100. Default: 100.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true
+            },
+            "x-ms-summary": "Limit",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "sortKey",
+            "in": "query",
+            "description": "Field to be used for sorting. Default: SetTimestamp",
+            "schema": {
+              "type": "string"
+            },
+            "x-ms-summary": "Sort Key",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "sortDescending",
+            "in": "query",
+            "description": "Set to 'true' to sort descending based on sort key. Default: 'false'",
+            "schema": {
+              "type": "boolean"
+            },
+            "x-ms-summary": "Sort Descending",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "includeSubsites",
+            "in": "query",
+            "description": "Include chargers from subsites.",
+            "schema": {
+              "type": "boolean"
+            },
+            "x-ms-summary": "Include Subsites",
+            "x-ms-visibility": "important"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "DLM charger states successfully retrieved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/getDLMChargerCurrentsResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Success"
+          },
+          "400": {
+            "description": "Details of the validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/problemDetails"
+                }
+              }
+            },
+            "x-ms-summary": "Validation Error"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          },
+          "401": {
+            "description": "User not authorized.",
+            "x-ms-summary": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ],
+        "x-ms-visibility": "important"
+      }
+    },
+    "/v2/dlm/sites/{siteId}/charger-currents-grouped": {
+      "get": {
+        "tags": [
+          "DLM"
+        ],
+        "summary": "Get DLM site charger currents grouped",
+        "description": "Retrieves a grouped list of DLM charger currents for the specified site.",
+        "operationId": "getDLMSiteChargerCurrentsGrouped",
+        "parameters": [
+          {
+            "name": "siteId",
+            "in": "path",
+            "description": "ID of the site to retrieve DLM charger currents for.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "x-ms-summary": "Site ID",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start timestamp for the period to be fetched. Default: 7 days ago.",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "x-ms-summary": "Timestamp from",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End timestamp for the period to be fetched. Default: Now.",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "x-ms-summary": "Timestamp to",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "binSize",
+            "in": "query",
+            "description": "Bin size for the data in minutes. Default: 60.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "nullable": true
+            },
+            "x-ms-summary": "Bin Size",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "includeSubsites",
+            "in": "query",
+            "description": "Include chargers from subsites.",
+            "schema": {
+              "type": "boolean"
+            },
+            "x-ms-summary": "Include Subsites",
+            "x-ms-visibility": "important"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "DLM charger currents successfully retrieved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/getDLMSiteChargerCurrentsGroupedResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Success"
+          },
+          "400": {
+            "description": "Details of the validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/problemDetails"
+                }
+              }
+            },
+            "x-ms-summary": "Validation Error"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          },
+          "401": {
+            "description": "User not authorized.",
+            "x-ms-summary": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ],
+        "x-ms-visibility": "important"
+      }
+    },
+    "/v2/dlm/sites/{siteId}/charger-power-grouped": {
+      "get": {
+        "tags": [
+          "DLM"
+        ],
+        "summary": "Get DLM site charger power grouped",
+        "description": "Retrieves a grouped list of DLM charger power for the specified site.",
+        "operationId": "getDLMSiteChargerPowerGrouped",
+        "parameters": [
+          {
+            "name": "siteId",
+            "in": "path",
+            "description": "ID of the site to retrieve DLM charger power for.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "x-ms-summary": "Site ID",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start timestamp for the period to be fetched. Default: 7 days ago.",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "x-ms-summary": "Timestamp from",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End timestamp for the period to be fetched. Default: Now.",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "x-ms-summary": "Timestamp to",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "binSize",
+            "in": "query",
+            "description": "Bin size for the data in minutes. Default: 60.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "nullable": true
+            },
+            "x-ms-summary": "Bin Size",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "includeSubsites",
+            "in": "query",
+            "description": "Include chargers from subsites.",
+            "schema": {
+              "type": "boolean"
+            },
+            "x-ms-summary": "Include Subsites",
+            "x-ms-visibility": "important"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "DLM charger power successfully retrieved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/getDLMSiteChargerPowerGroupedResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Success"
+          },
+          "400": {
+            "description": "Details of the validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/problemDetails"
+                }
+              }
+            },
+            "x-ms-summary": "Validation Error"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          },
+          "401": {
+            "description": "User not authorized.",
+            "x-ms-summary": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ],
+        "x-ms-visibility": "important"
+      }
+    },
+    "/v2/dlm/sites/{siteId}/charging-profiles": {
+      "get": {
+        "tags": [
+          "DLM"
+        ],
+        "summary": "Get DLM site charging profiles",
+        "description": "Retrieves a list of DLM charging profiles for the specified site.",
+        "operationId": "getDLMSiteChargingProfiles",
+        "parameters": [
+          {
+            "name": "siteId",
+            "in": "path",
+            "description": "ID of the site to retrieve DLM charging profiles for.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "x-ms-summary": "Site ID",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start timestamp for the period to be fetched. Default: 7 days ago.",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "x-ms-summary": "Timestamp from",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End timestamp for the period to be fetched. Default: Now.",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "x-ms-summary": "Timestamp to",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page to be fetched. Default: 1",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true
+            },
+            "x-ms-summary": "Page",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Limit (No. of records per page). Max value: 100. Default: 100.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true
+            },
+            "x-ms-summary": "Limit",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "sortKey",
+            "in": "query",
+            "description": "Field to be used for sorting. Default: SetTimestamp",
+            "schema": {
+              "type": "string"
+            },
+            "x-ms-summary": "Sort Key",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "sortDescending",
+            "in": "query",
+            "description": "Set to 'true' to sort descending based on sort key. Default: 'false'",
+            "schema": {
+              "type": "boolean"
+            },
+            "x-ms-summary": "Sort Descending",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "unit",
+            "in": "query",
+            "description": "Filters charging profiles by unit.",
+            "schema": {
+              "type": "string"
+            },
+            "x-ms-summary": "Charging profile unit",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "includeSubsites",
+            "in": "query",
+            "description": "Include chargers from subsites.",
+            "schema": {
+              "type": "boolean"
+            },
+            "x-ms-summary": "Include Subsites",
+            "x-ms-visibility": "important"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "DLM charger states successfully retrieved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/getDLMChargerChargingProfilesResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Success"
+          },
+          "400": {
+            "description": "Details of the validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/problemDetails"
+                }
+              }
+            },
+            "x-ms-summary": "Validation Error"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          },
+          "401": {
+            "description": "User not authorized.",
+            "x-ms-summary": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ],
+        "x-ms-visibility": "important"
+      }
+    },
+    "/v2/dlm/sites/{siteId}": {
+      "get": {
+        "tags": [
+          "DLM"
+        ],
+        "summary": "Get DLM Site Configuration",
+        "description": "Retrieves the DLM configuration for the specified site.",
+        "operationId": "getDLMSiteConfiguration",
+        "parameters": [
+          {
+            "name": "siteId",
+            "in": "path",
+            "description": "ID of the site to retrieve the DLM configuration for.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "x-ms-summary": "Site ID",
+            "x-ms-visibility": "important"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "DLM configuration successfully retrieved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/getDLMSiteConfigurationResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Success"
+          },
+          "400": {
+            "description": "Details of the validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/problemDetails"
+                }
+              }
+            },
+            "x-ms-summary": "Validation Error"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          },
+          "401": {
+            "description": "User not authorized.",
+            "x-ms-summary": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ],
+        "x-ms-visibility": "important"
+      },
+      "patch": {
+        "tags": [
+          "DLM"
+        ],
+        "summary": "Update DLM Site Configuration",
+        "description": "Updates the DLM configuration for the specified site.",
+        "operationId": "updateDLMSiteConfiguration",
+        "parameters": [
+          {
+            "name": "siteId",
+            "in": "path",
+            "description": "ID of the site to update the DLM configuration for.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "x-ms-summary": "Site ID",
+            "x-ms-visibility": "important"
+          }
+        ],
+        "requestBody": {
+          "description": "The updated DLM configuration details.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateDLMConfigurationRequestBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "DLM configuration successfully updated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/getDLMSiteConfigurationResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Success"
+          },
+          "400": {
+            "description": "Details of the validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/problemDetails"
+                }
+              }
+            },
+            "x-ms-summary": "Validation Error"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          },
+          "401": {
+            "description": "User not authorized.",
+            "x-ms-summary": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ],
+        "x-ms-visibility": "important"
+      }
+    },
+    "/v2/dlm/sites": {
+      "get": {
+        "tags": [
+          "DLM"
+        ],
+        "summary": "Get DLM Site Configurations",
+        "description": "Retrieves DLM configurations for sites based on the provided parameters.",
+        "operationId": "getDLMSiteConfigurations",
+        "parameters": [
+          {
+            "name": "siteId",
+            "in": "query",
+            "description": "Optional ID to filter configurations for a specific site.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "nullable": true
+            },
+            "x-ms-summary": "Site ID",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "includeSubsites",
+            "in": "query",
+            "description": "When true, includes configurations for child sites. Default: false",
+            "schema": {
+              "type": "boolean",
+              "nullable": true
+            },
+            "x-ms-summary": "Include Subsites",
+            "x-ms-visibility": "important"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "DLM configurations successfully retrieved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/getDLMSiteConfigurationsResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Success"
+          },
+          "400": {
+            "description": "Details of the validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/problemDetails"
+                }
+              }
+            },
+            "x-ms-summary": "Validation Error"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          },
+          "401": {
+            "description": "User not authorized.",
+            "x-ms-summary": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ],
+        "x-ms-visibility": "important"
+      }
+    },
+    "/v2/dlm/sites/{siteId}/currents": {
+      "get": {
+        "tags": [
+          "DLM"
+        ],
+        "summary": "Get DLM site currents",
+        "description": "Retrieves a list of DLM currents for the specified site.",
+        "operationId": "getDLMSiteCurrents",
+        "parameters": [
+          {
+            "name": "siteId",
+            "in": "path",
+            "description": "ID of the site to retrieve DLM currents for.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "x-ms-summary": "Site ID",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start timestamp for the period to be fetched. Default: 7 days ago.",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "x-ms-summary": "Timestamp from",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End timestamp for the period to be fetched. Default: Now.",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "x-ms-summary": "Timestamp to",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "binSize",
+            "in": "query",
+            "description": "Bin size for the data in minutes. Default: 60.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "nullable": true
+            },
+            "x-ms-summary": "Bin Size",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page to be fetched. Default: 1",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true
+            },
+            "x-ms-summary": "Page",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Limit (No. of records per page). Max value: 100. Default: 100.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true
+            },
+            "x-ms-summary": "Limit",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "sortKey",
+            "in": "query",
+            "description": "Field to be used for sorting. Default: SetTimestamp",
+            "schema": {
+              "type": "string"
+            },
+            "x-ms-summary": "Sort Key",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "sortDescending",
+            "in": "query",
+            "description": "Set to 'true' to sort descending based on sort key. Default: 'false'",
+            "schema": {
+              "type": "boolean"
+            },
+            "x-ms-summary": "Sort Descending",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "includeSubsites",
+            "in": "query",
+            "description": "Include chargers from subsites.",
+            "schema": {
+              "type": "boolean"
+            },
+            "x-ms-summary": "Include Subsites",
+            "x-ms-visibility": "important"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "DLM currents successfully retrieved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/getDLMSiteCurrentsResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Success"
+          },
+          "400": {
+            "description": "Details of the validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/problemDetails"
+                }
+              }
+            },
+            "x-ms-summary": "Validation Error"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          },
+          "401": {
+            "description": "User not authorized.",
+            "x-ms-summary": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ],
+        "x-ms-visibility": "important"
+      }
+    },
+    "/v2/dlm/sites/{siteId}/effective-max-current-history": {
+      "get": {
+        "tags": [
+          "DLM"
+        ],
+        "summary": "Get DLM effective max current history",
+        "description": "Retrieves a list of effective max current history entries for the specified site.",
+        "operationId": "getDLMSiteEffectiveMaxCurrentHistory",
+        "parameters": [
+          {
+            "name": "siteId",
+            "in": "path",
+            "description": "ID of the site to retrieve effective max current history for.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "x-ms-summary": "Site ID",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start timestamp for the period to be fetched. Default: 7 days ago.",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "x-ms-summary": "Timestamp from",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End timestamp for the period to be fetched. Default: Now.",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "x-ms-summary": "Timestamp to",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page to be fetched. Default: 1",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true
+            },
+            "x-ms-summary": "Page",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Limit (No. of records per page). Max value: 1000. Default: 100.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true
+            },
+            "x-ms-summary": "Limit",
+            "x-ms-visibility": "important"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Effective max current history successfully retrieved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/getDLMSiteEffectiveMaxCurrentHistoryResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Success"
+          },
+          "400": {
+            "description": "Details of the validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/problemDetails"
+                }
+              }
+            },
+            "x-ms-summary": "Validation Error"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          },
+          "401": {
+            "description": "User not authorized.",
+            "x-ms-summary": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ],
+        "x-ms-visibility": "important"
+      }
+    },
+    "/v2/dlm/charger-settings": {
+      "post": {
+        "tags": [
+          "DLMChargerSettings"
+        ],
+        "summary": "Add DLM Charger Setting",
+        "description": "Creates a new DLM charger setting.",
+        "operationId": "AddDLMChargerSetting",
+        "requestBody": {
+          "description": "DLM charger setting data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/addDLMChargerSettingRequestBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successfully created the DLM charger setting.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/dlmChargerSettingDto"
+                }
+              }
+            },
+            "x-ms-summary": "Created"
+          },
+          "400": {
+            "description": "Invalid request data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Bad Request"
+          },
+          "401": {
+            "description": "User is not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Unauthorized"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "DLMChargerSettings"
+        ],
+        "summary": "Get DLM Charger Settings",
+        "description": "Retrieves a paginated list of DLM charger settings with optional filtering.",
+        "operationId": "GetDLMChargerSettings",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "The page number to retrieve (starting from 1).",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "x-ms-summary": "Page number for pagination"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of items to return per page.",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "x-ms-summary": "Items per page"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Search term to filter settings by manufacturer, model, or firmware version.",
+            "schema": {
+              "type": "string"
+            },
+            "x-ms-summary": "Search term"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved DLM charger settings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/getDLMChargerSettingsResponsePaginated"
+                }
+              }
+            },
+            "x-ms-summary": "Success"
+          },
+          "400": {
+            "description": "Invalid request parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Bad Request"
+          },
+          "401": {
+            "description": "User is not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Unauthorized"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/v2/dlm/charger-settings/{id}": {
+      "delete": {
+        "tags": [
+          "DLMChargerSettings"
+        ],
+        "summary": "Delete DLM Charger Setting",
+        "description": "Deletes a DLM charger setting by ID.",
+        "operationId": "DeleteDLMChargerSetting",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The ID of the DLM charger setting to delete.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "x-ms-summary": "DLM Charger Setting ID"
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "DLM charger setting not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Not Found"
+          },
+          "400": {
+            "description": "Invalid request parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Bad Request"
+          },
+          "401": {
+            "description": "User is not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Unauthorized"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          },
+          "204": {
+            "description": "The DLM charger setting was deleted successfully.",
+            "x-ms-summary": "Deleted"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "DLMChargerSettings"
+        ],
+        "summary": "Get DLM Charger Setting",
+        "description": "Retrieves a specific DLM charger setting by ID.",
+        "operationId": "GetDLMChargerSetting",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The ID of the DLM charger setting to retrieve.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "x-ms-summary": "DLM Charger Setting ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved the DLM charger setting.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/dlmChargerSettingDto"
+                }
+              }
+            },
+            "x-ms-summary": "Success"
+          },
+          "404": {
+            "description": "DLM charger setting not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Not Found"
+          },
+          "400": {
+            "description": "Invalid request parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Bad Request"
+          },
+          "401": {
+            "description": "User is not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Unauthorized"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "DLMChargerSettings"
+        ],
+        "summary": "Update DLM Charger Setting",
+        "description": "Updates an existing DLM charger setting.",
+        "operationId": "UpdateDLMChargerSetting",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The ID of the DLM charger setting to update.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "x-ms-summary": "DLM Charger Setting ID"
+          }
+        ],
+        "requestBody": {
+          "description": "DLM charger setting data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateDLMChargerSettingRequestBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully updated the DLM charger setting.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/dlmChargerSettingDto"
+                }
+              }
+            },
+            "x-ms-summary": "Success"
+          },
+          "400": {
+            "description": "Invalid request data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Bad Request"
+          },
+          "404": {
+            "description": "DLM charger setting not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Not Found"
+          },
+          "401": {
+            "description": "User is not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Unauthorized"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/v2/dlm/chargers/{chargerId}/charger-behavior-policy": {
+      "delete": {
+        "tags": [
+          "DLMChargerBehaviorPolicy"
+        ],
+        "summary": "Delete DLM Charger BehaviorPolicy",
+        "description": "Deletes a DLM charger behavior policy by charger ID.",
+        "operationId": "DeleteDLMChargerBehaviorPolicy",
+        "parameters": [
+          {
+            "name": "chargerId",
+            "in": "path",
+            "description": "ID of the charger to delete the DLM behavior policy for.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "x-ms-summary": "Charger ID"
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "DLM charger not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Not Found"
+          },
+          "400": {
+            "description": "Invalid request parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Bad Request"
+          },
+          "401": {
+            "description": "User is not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Unauthorized"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          },
+          "204": {
+            "description": "The DLM charger behavior policy was deleted successfully.",
+            "x-ms-summary": "Deleted"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "DLMChargerBehaviorPolicy"
+        ],
+        "summary": "Get DLM Charger Behavior Policy",
+        "description": "Retrieves the DLM charger behavior policy for a specific charger.",
+        "operationId": "getDLMChargerBehaviorPolicy",
+        "parameters": [
+          {
+            "name": "chargerId",
+            "in": "path",
+            "description": "ID of the charger to retrieve the DLM behavior policy for.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "x-ms-summary": "Charger ID",
+            "x-ms-visibility": "important"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "DLM charger behavior policy successfully retrieved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/dlmChargerBehaviorPolicyDto"
+                }
+              }
+            },
+            "x-ms-summary": "Success"
+          },
+          "400": {
+            "description": "Details of the validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/problemDetails"
+                }
+              }
+            },
+            "x-ms-summary": "Validation Error"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          },
+          "401": {
+            "description": "User not authorized.",
+            "x-ms-summary": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ],
+        "x-ms-visibility": "important"
+      },
+      "patch": {
+        "tags": [
+          "DLMChargerBehaviorPolicy"
+        ],
+        "summary": "Add or Update DLM Charger Behavior Policy",
+        "description": "Creates a new DLM charger behavior policy or updates if existing.",
+        "operationId": "UpdateDLMChargerBehaviorPolicy",
+        "parameters": [
+          {
+            "name": "chargerId",
+            "in": "path",
+            "description": "ID of the charger to retrieve the DLM behavior policy for.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "x-ms-summary": "Charger ID",
+            "x-ms-visibility": "important"
+          }
+        ],
+        "requestBody": {
+          "description": "DLM charger behavior policy profile",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateDLMChargerBehaviorPolicyRequestBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successfully created/updated the DLM charger behavior policy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/updateDLMChargerBehaviorPolicyDto"
+                }
+              }
+            },
+            "x-ms-summary": "Created"
+          },
+          "400": {
+            "description": "Invalid request data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Bad Request"
+          },
+          "401": {
+            "description": "User is not authenticated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Unauthorized"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ]
+      }
+    },
+    "/v2/dlm/chargers/{chargerId}/charging-profiles": {
+      "get": {
+        "tags": [
+          "DLM"
+        ],
+        "summary": "Get DLM charger charging profiles",
+        "description": "Retrieves a list of DLM charger charging profiles for the specified site.",
+        "operationId": "getDLMChargerChargingProfiles",
+        "parameters": [
+          {
+            "name": "chargerId",
+            "in": "path",
+            "description": "ID of the charger to retrieve DLM charger charging profiles for.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "x-ms-summary": "Charger ID",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start timestamp for the period to be fetched. Default: 7 days ago.",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "x-ms-summary": "Timestamp from",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End timestamp for the period to be fetched. Default: Now.",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "x-ms-summary": "Timestamp to",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page to be fetched. Default: 1",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true
+            },
+            "x-ms-summary": "Page",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Limit (No. of records per page). Max value: 100. Default: 100.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true
+            },
+            "x-ms-summary": "Limit",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "sortKey",
+            "in": "query",
+            "description": "Field to be used for sorting. Default: SetTimestamp",
+            "schema": {
+              "type": "string"
+            },
+            "x-ms-summary": "Sort Key",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "sortDescending",
+            "in": "query",
+            "description": "Set to 'true' to sort descending based on sort key. Default: 'false'",
+            "schema": {
+              "type": "boolean"
+            },
+            "x-ms-summary": "Sort Descending",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "unit",
+            "in": "query",
+            "description": "Filters charging profiles by unit.",
+            "schema": {
+              "type": "string"
+            },
+            "x-ms-summary": "Charging profile unit",
+            "x-ms-visibility": "important"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "DLM charger states successfully retrieved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/getDLMChargerChargingProfilesResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Success"
+          },
+          "400": {
+            "description": "Details of the validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/problemDetails"
+                }
+              }
+            },
+            "x-ms-summary": "Validation Error"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          },
+          "401": {
+            "description": "User not authorized.",
+            "x-ms-summary": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ],
+        "x-ms-visibility": "important"
+      }
+    },
+    "/v2/dlm/chargers/{chargerId}/currents": {
+      "get": {
+        "tags": [
+          "DLM"
+        ],
+        "summary": "Get DLM charger currents",
+        "description": "Retrieves a list of DLM charger currents for the specified charger.",
+        "operationId": "getDLMChargerCurrents",
+        "parameters": [
+          {
+            "name": "chargerId",
+            "in": "path",
+            "description": "ID of the charger to retrieve DLM charger currents for.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "x-ms-summary": "Charger ID",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Start timestamp for the period to be fetched. Default: 7 days ago.",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "x-ms-summary": "Timestamp from",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "End timestamp for the period to be fetched. Default: Now.",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "nullable": true
+            },
+            "x-ms-summary": "Timestamp to",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "binSize",
+            "in": "query",
+            "description": "Bin size for the data in minutes. Default: 60.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "nullable": true
+            },
+            "x-ms-summary": "Bin Size",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page to be fetched. Default: 1",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true
+            },
+            "x-ms-summary": "Page",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Limit (No. of records per page). Max value: 100. Default: 100.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true
+            },
+            "x-ms-summary": "Limit",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "sortKey",
+            "in": "query",
+            "description": "Field to be used for sorting. Default: binTime",
+            "schema": {
+              "type": "string"
+            },
+            "x-ms-summary": "Sort Key",
+            "x-ms-visibility": "important"
+          },
+          {
+            "name": "sortDescending",
+            "in": "query",
+            "description": "Set to 'true' to sort descending based on sort key. Default: 'false'",
+            "schema": {
+              "type": "boolean"
+            },
+            "x-ms-summary": "Sort Descending",
+            "x-ms-visibility": "important"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "DLM charger states successfully retrieved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/getDLMChargerCurrentsResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Success"
+          },
+          "400": {
+            "description": "Details of the validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/problemDetails"
+                }
+              }
+            },
+            "x-ms-summary": "Validation Error"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          },
+          "401": {
+            "description": "User not authorized.",
+            "x-ms-summary": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ],
+        "x-ms-visibility": "important"
+      }
+    },
+    "/v2/dlm/sites/{siteId}/charger-states": {
+      "get": {
+        "tags": [
+          "DLM"
+        ],
+        "summary": "Get DLM charger states",
+        "description": "Retrieves a list of DLM charger states for the specified site.",
+        "operationId": "getDLMChargerStates",
+        "parameters": [
+          {
+            "name": "siteId",
+            "in": "path",
+            "description": "ID of the site to retrieve DLM charger states for.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "x-ms-summary": "Site ID",
+            "x-ms-visibility": "important"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "DLM charger states successfully retrieved.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/getDLMChargerStatesResponse"
+                }
+              }
+            },
+            "x-ms-summary": "Success"
+          },
+          "400": {
+            "description": "Details of the validation error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/problemDetails"
+                }
+              }
+            },
+            "x-ms-summary": "Validation Error"
+          },
+          "500": {
+            "description": "An unexpected error occurred.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error"
+                }
+              }
+            },
+            "x-ms-summary": "Internal Server Error"
+          },
+          "401": {
+            "description": "User not authorized.",
+            "x-ms-summary": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "bearer": [ ]
+          }
+        ],
+        "x-ms-visibility": "important"
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "addDLMChargerSettingRequestBody": {
+        "type": "object",
+        "properties": {
+          "manufacturer": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "firmwareVersion": {
+            "type": "string"
+          },
+          "smartChargingUnit": {
+            "type": "string"
+          },
+          "useDefaultTxProfileOnly": {
+            "type": "boolean"
+          }
+        }
+      },
+      "addExternalMeterRequestBody": {
+        "type": "object",
+        "properties": {
+          "meterId": {
+            "type": "string"
+          },
+          "siteId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "manufacturer": {
+            "type": "string"
+          },
+          "amountCurrentToReduceWhenOffline": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "dlmChargerBehaviorPolicyDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "chargerId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "profile": {
+            "type": "string"
+          },
+          "chargingPaused": {
+            "type": "boolean"
+          },
+          "resumeChargingOn": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "dlmChargerCurrentItem": {
+        "type": "object",
+        "properties": {
+          "binTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "phase": {
+            "type": "string"
+          },
+          "avgCurrent": {
+            "type": "number",
+            "format": "double"
+          },
+          "avgCurrentOffered": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "dlmChargerPowerItem": {
+        "type": "object",
+        "properties": {
+          "binTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "phase": {
+            "type": "string"
+          },
+          "avgPowerKw": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "dlmChargerSettingDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "manufacturer": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "firmwareVersion": {
+            "type": "string"
+          },
+          "smartChargingUnit": {
+            "type": "string"
+          },
+          "useDefaultTxProfileOnly": {
+            "type": "boolean"
+          }
+        }
+      },
+      "dlmChargerSocketCurrentSeries": {
+        "type": "object",
+        "properties": {
+          "chargerId": {
+            "type": "string"
+          },
+          "socketId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isSubsite": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/dlmChargerCurrentItem"
+            }
+          }
+        }
+      },
+      "dlmChargerSocketPowerSeries": {
+        "type": "object",
+        "properties": {
+          "chargerId": {
+            "type": "string"
+          },
+          "socketId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isSubsite": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/dlmChargerPowerItem"
+            }
+          }
+        }
+      },
+      "dlmChargerState": {
+        "type": "object",
+        "properties": {
+          "chargerId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "serialNumber": {
+            "type": "string"
+          },
+          "online": {
+            "type": "boolean"
+          },
+          "socketCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sockets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/dlmSocketState"
+            }
+          }
+        }
+      },
+      "dlmChargingProfile": {
+        "type": "object",
+        "properties": {
+          "chargerId": {
+            "type": "string"
+          },
+          "setTimestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "responseTimestamp": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "socketId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "connectorId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "evseId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "id": {
+            "type": "string"
+          },
+          "transactionId": {
+            "type": "string"
+          },
+          "duration": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "number",
+            "format": "double"
+          },
+          "phases": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "accepted": {
+            "type": "boolean"
+          }
+        }
+      },
+      "dlmEffectiveMaxCurrentHistoryItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "effectiveMaxCurrent": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "source": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "dlmSocketState": {
+        "type": "object",
+        "properties": {
+          "socketId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "socketState": {
+            "type": "string"
+          },
+          "numberOfPhases": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "authorizedCurrentL1": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "authorizedCurrentL2": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "authorizedCurrentL3": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "throttled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "error": {
+        "type": "object",
+        "properties": {
+          "errorCode": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "errorNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "helpLink": {
+            "type": "string"
+          }
+        }
+      },
+      "externalMeterDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "meterId": {
+            "type": "string"
+          },
+          "siteId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "manufacturer": {
+            "type": "string"
+          },
+          "reading": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "readingTimestamp": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "online": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "externalLoad": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "amountCurrentToReduceWhenOffline": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "getDLMChargerChargingProfilesResponse": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalRecords": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          },
+          "hasPreviousPage": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/dlmChargingProfile"
+            }
+          }
+        }
+      },
+      "getDLMChargerCurrentsResponse": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalRecords": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          },
+          "hasPreviousPage": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ocppChargerCurrentDto"
+            }
+          }
+        }
+      },
+      "getDLMChargerSettingsResponsePaginated": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalRecords": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          },
+          "hasPreviousPage": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/dlmChargerSettingDto"
+            }
+          }
+        }
+      },
+      "getDLMChargerStatesResponse": {
+        "type": "object",
+        "properties": {
+          "chargers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/dlmChargerState"
+            }
+          }
+        }
+      },
+      "getDLMSiteChargerCurrentsGroupedResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/dlmChargerSocketCurrentSeries"
+            }
+          }
+        }
+      },
+      "getDLMSiteChargerPowerGroupedResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/dlmChargerSocketPowerSeries"
+            }
+          }
+        }
+      },
+      "getDLMSiteConfigurationResponse": {
+        "type": "object",
+        "properties": {
+          "siteId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "siteName": {
+            "type": "string"
+          },
+          "maxCurrent": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "effectiveMaxCurrent": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "lastUpdated": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "earthingSystemType": {
+            "enum": [
+              "TN",
+              "IT"
+            ],
+            "type": "string",
+            "default": "TN"
+          },
+          "enabled": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "siteType": {
+            "enum": [
+              "OCPP",
+              "EASEE"
+            ],
+            "type": "string",
+            "default": "OCPP",
+            "nullable": true
+          },
+          "easeeSiteId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "latestEaseeUpdateDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "latestEaseeMaxCurrent": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "biddingZone": {
+            "type": "string"
+          },
+          "fuseSize": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "defaultOfflineCurrent": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "defaultOfflineCurrentDc": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "usedCurrentsPerPhase": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "transactionProfileExpiryMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "transactionMinimumCurrent": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "reserveOfflineCurrent": {
+            "type": "boolean"
+          },
+          "spotOptimisationEnabled": {
+            "type": "boolean"
+          },
+          "driverSpotOptimisationEnabled": {
+            "type": "boolean"
+          },
+          "socOptimisationEnabled": {
+            "type": "boolean"
+          },
+          "highSocThreshold": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "askMeterValuesDelaySeconds": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "meterValueCurrentsPerPhase": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        }
+      },
+      "getDLMSiteConfigurationsResponse": {
+        "type": "object",
+        "properties": {
+          "configurations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/getDLMSiteConfigurationResponse"
+            }
+          }
+        }
+      },
+      "getDLMSiteCurrentsResponse": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalRecords": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          },
+          "hasPreviousPage": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ocppSiteCurrentDto"
+            }
+          }
+        }
+      },
+      "getDLMSiteEffectiveMaxCurrentHistoryResponse": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalRecords": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          },
+          "hasPreviousPage": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/dlmEffectiveMaxCurrentHistoryItem"
+            }
+          }
+        }
+      },
+      "getExternalMeterResponse": {
+        "type": "object",
+        "properties": {
+          "meterId": {
+            "type": "string"
+          },
+          "dlmGroupId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "getExternalMetersResponse": {
+        "type": "object",
+        "properties": {
+          "meters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/externalMeterDto"
+            }
+          }
+        }
+      },
+      "getRealtimePowerTotalsResponse": {
+        "type": "object",
+        "properties": {
+          "totalPowerWatts": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalErrorWatts": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ocppChargerCurrentDto": {
+        "type": "object",
+        "properties": {
+          "binTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "chargerId": {
+            "type": "string"
+          },
+          "socketId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "phase": {
+            "type": "string"
+          },
+          "avgCurrent": {
+            "type": "number",
+            "format": "double"
+          },
+          "avgCurrentOffered": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "ocppSiteCurrentDto": {
+        "type": "object",
+        "properties": {
+          "binTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "siteId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "siteName": {
+            "type": "string"
+          },
+          "phase": {
+            "type": "string"
+          },
+          "avgCurrent": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "problemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "extensions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "updateDLMChargerBehaviorPolicyDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "chargerId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "profile": {
+            "type": "string"
+          }
+        }
+      },
+      "updateDLMChargerBehaviorPolicyRequestBody": {
+        "type": "object",
+        "properties": {
+          "profile": {
+            "enum": [
+              "ALWAYS_CHARGE",
+              "BALANCED",
+              "COST_SAVING_MODE",
+              "CHEAPEST_HOURS"
+            ],
+            "type": "string",
+            "default": "ALWAYS_CHARGE"
+          }
+        }
+      },
+      "updateDLMChargerSettingRequestBody": {
+        "type": "object",
+        "properties": {
+          "manufacturer": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "firmwareVersion": {
+            "type": "string"
+          },
+          "smartChargingUnit": {
+            "type": "string"
+          },
+          "useDefaultTxProfileOnly": {
+            "type": "boolean"
+          }
+        }
+      },
+      "updateDLMConfigurationRequestBody": {
+        "type": "object",
+        "properties": {
+          "maxCurrent": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "earthingSystemType": {
+            "enum": [
+              "TN",
+              "IT"
+            ],
+            "type": "string",
+            "default": "TN"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "siteType": {
+            "enum": [
+              "OCPP",
+              "EASEE"
+            ],
+            "type": "string",
+            "default": "OCPP",
+            "nullable": true
+          },
+          "easeeSiteId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "biddingZone": {
+            "type": "string"
+          },
+          "fuseSize": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "defaultOfflineCurrent": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "defaultOfflineCurrentDc": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "transactionProfileExpiryMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "transactionMinimumCurrent": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "reserveOfflineCurrent": {
+            "type": "boolean"
+          },
+          "spotOptimisationEnabled": {
+            "type": "boolean"
+          },
+          "driverSpotOptimisationEnabled": {
+            "type": "boolean"
+          },
+          "socOptimisationEnabled": {
+            "type": "boolean"
+          },
+          "highSocThreshold": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "askMeterValuesDelaySeconds": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        }
+      },
+      "updateExternalMeterRequestBody": {
+        "type": "object",
+        "properties": {
+          "siteId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "manufacturer": {
+            "type": "string"
+          },
+          "amountCurrentToReduceWhenOffline": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "apiKey": {
+        "type": "apiKey",
+        "description": "The API key for the customer",
+        "name": "x-api-key",
+        "in": "header"
+      },
+      "bearer": {
+        "type": "http",
+        "description": "The bearer token for the user",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

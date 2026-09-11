@@ -1,4 +1,4 @@
-"""Tests for environment-driven settings, focused on the Ampeco config."""
+"""Tests for environment-driven settings, focused on the Ampeco and eMabler config."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from laddel_migration.config import (
     Settings,
     load_settings,
     require_ampeco,
+    require_emabler,
     require_sitetracker,
 )
 
@@ -28,6 +29,12 @@ _SITETRACKER_VARS = (
     "SITETRACKER_REQUESTS_PER_MINUTE",
 )
 
+_EMABLER_VARS = (
+    "EMABLER_V2_API_URL",
+    "EMABLER_V2_API_KEY",
+    "EMABLER_REQUESTS_PER_MINUTE",
+)
+
 
 def _set_db_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for key, value in _DB_ENV.items():
@@ -35,6 +42,8 @@ def _set_db_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for key in ("AMPECO_BASE_URL", "AMPECO_API_TOKEN", "AMPECO_REQUESTS_PER_MINUTE"):
         monkeypatch.delenv(key, raising=False)
     for key in _SITETRACKER_VARS:
+        monkeypatch.delenv(key, raising=False)
+    for key in _EMABLER_VARS:
         monkeypatch.delenv(key, raising=False)
 
 
@@ -147,3 +156,53 @@ def test_require_sitetracker_raises_when_missing() -> None:
 
     with pytest.raises(RuntimeError, match="not configured"):
         require_sitetracker(settings)
+
+
+def test_emabler_loaded_and_base_url_trailing_slash_stripped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _set_db_env(monkeypatch)
+    monkeypatch.setenv("EMABLER_V2_API_URL", "https://api.example.com/api/v2/cpo/")
+    monkeypatch.setenv("EMABLER_V2_API_KEY", "secret-key")
+
+    settings = load_settings(load_env=False)
+
+    assert settings.emabler is not None
+    assert settings.emabler.base_url == "https://api.example.com/api/v2/cpo"
+    assert settings.emabler.api_key == "secret-key"
+    assert settings.emabler.requests_per_minute == 1000
+
+
+def test_emabler_requests_per_minute_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    _set_db_env(monkeypatch)
+    monkeypatch.setenv("EMABLER_V2_API_URL", "https://api.example.com/api/v2/cpo")
+    monkeypatch.setenv("EMABLER_V2_API_KEY", "k")
+    monkeypatch.setenv("EMABLER_REQUESTS_PER_MINUTE", "60")
+
+    settings = load_settings(load_env=False)
+
+    assert settings.emabler is not None
+    assert settings.emabler.requests_per_minute == 60
+
+
+def test_emabler_is_none_when_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    _set_db_env(monkeypatch)
+
+    settings = load_settings(load_env=False)
+
+    assert settings.emabler is None
+
+
+def test_half_configured_emabler_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    _set_db_env(monkeypatch)
+    monkeypatch.setenv("EMABLER_V2_API_URL", "https://api.example.com/api/v2/cpo")
+
+    with pytest.raises(RuntimeError, match="both EMABLER_V2_API_URL and"):
+        load_settings(load_env=False)
+
+
+def test_require_emabler_raises_when_missing() -> None:
+    settings = Settings(source_db=None, target_db=None, ampeco=None)  # type: ignore[arg-type]
+
+    with pytest.raises(RuntimeError, match="not configured"):
+        require_emabler(settings)

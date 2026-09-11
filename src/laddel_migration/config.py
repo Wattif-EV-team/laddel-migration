@@ -54,6 +54,30 @@ class AmpecoSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class EmablerSettings:
+    """Connection settings for the eMabler Entity Management API.
+
+    eMabler is the *outgoing* CSMS: we read from it to enrich the migration
+    with facts that have no equivalent in the ``laddel`` database (the charger
+    OCPP protocol version, most importantly). Auth is a static ``x-api-key``
+    header rather than a bearer token.
+
+    ``base_url`` is the API root **without** a trailing slash, e.g.
+    ``https://api.emabler.net/api/v2/cpo``; clients append the spec's own
+    version-prefixed paths (``/v2/chargers``) to it.
+    """
+
+    base_url: str
+    api_key: str
+    requests_per_minute: int = 1000
+
+    @property
+    def safe_base_url(self) -> str:
+        """The base URL, safe to log (it carries no secret)."""
+        return self.base_url
+
+
+@dataclass(frozen=True, slots=True)
 class SiteTrackerSettings:
     """Connection settings for the SiteTracker (Salesforce) REST API.
 
@@ -81,16 +105,18 @@ class SiteTrackerSettings:
 class Settings:
     """Top-level application settings.
 
-    ``ampeco`` / ``sitetracker`` are ``None`` when their environment variables
-    are not set, so database-only commands (build, verify, sql) work without any
-    API credentials. Use :func:`require_ampeco` / :func:`require_sitetracker`
-    from code that needs to call the respective API.
+    ``ampeco`` / ``sitetracker`` / ``emabler`` are ``None`` when their
+    environment variables are not set, so database-only commands (build,
+    verify, sql) work without any API credentials. Use :func:`require_ampeco`,
+    :func:`require_sitetracker` or :func:`require_emabler` from code that needs
+    to call the respective API.
     """
 
     source_db: DatabaseSettings
     target_db: DatabaseSettings
     ampeco: AmpecoSettings | None
     sitetracker: SiteTrackerSettings | None = None
+    emabler: EmablerSettings | None = None
 
 
 def load_settings(*, load_env: bool = True) -> Settings:
@@ -125,11 +151,13 @@ def load_settings(*, load_env: bool = True) -> Settings:
     )
     ampeco = _load_ampeco()
     sitetracker = _load_sitetracker()
+    emabler = _load_emabler()
     return Settings(
         source_db=source_db,
         target_db=target_db,
         ampeco=ampeco,
         sitetracker=sitetracker,
+        emabler=emabler,
     )
 
 
@@ -164,6 +192,39 @@ def require_ampeco(settings: Settings) -> AmpecoSettings:
             "AMPECO_API_TOKEN in your environment or .env file."
         )
     return settings.ampeco
+
+
+def _load_emabler() -> EmablerSettings | None:
+    """Build :class:`EmablerSettings` from the environment, or ``None`` if unset.
+
+    Returns ``None`` only when *neither* eMabler variable is set. If exactly one
+    is set the configuration is half-finished, so we raise rather than silently
+    proceed without credentials.
+    """
+    base_url = os.environ.get("EMABLER_V2_API_URL")
+    api_key = os.environ.get("EMABLER_V2_API_KEY")
+    if not base_url and not api_key:
+        return None
+    if not base_url or not api_key:
+        raise RuntimeError(
+            "Incomplete eMabler configuration: set both EMABLER_V2_API_URL and "
+            "EMABLER_V2_API_KEY (or neither)."
+        )
+    return EmablerSettings(
+        base_url=base_url.rstrip("/"),
+        api_key=api_key,
+        requests_per_minute=int(os.environ.get("EMABLER_REQUESTS_PER_MINUTE", "1000")),
+    )
+
+
+def require_emabler(settings: Settings) -> EmablerSettings:
+    """Return the eMabler settings, raising a clear error if they are unset."""
+    if settings.emabler is None:
+        raise RuntimeError(
+            "eMabler API is not configured. Set EMABLER_V2_API_URL and "
+            "EMABLER_V2_API_KEY in your environment or .env file."
+        )
+    return settings.emabler
 
 
 # Environment variables that configure the SiteTracker (Salesforce) API. All

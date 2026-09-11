@@ -57,6 +57,37 @@ Two MySQL databases, and we never blur the line between them:
   migration state), and any **reports** (analysis / quality views). Nothing we create
   lives anywhere but `target`.
 
+## External APIs
+
+Three external systems, with **two different permission levels**:
+
+| System | Client | We may |
+|--------|--------|--------|
+| **Ampeco** | `clients/ampeco.py` | read + write (it is the migration target) |
+| **SiteTracker** (Salesforce) | `clients/sitetracker.py` | read + write (also a migration target) |
+| **eMabler** | `clients/emabler.py` | **READ ONLY — GET and nothing else** |
+
+### ⛔ eMabler is read-only, always
+
+eMabler is the CSMS we are migrating **away from**. It is a **live production
+system operating real charging hardware**. We extract from it; we never touch it.
+
+**Hard rules:**
+
+- ❌ NEVER send a POST/PUT/PATCH/DELETE to eMabler — no remote start/stop, no
+  reboot, no firmware update, no tariff/driver/site writes, no "just fixing"
+  a bad record. Its API exposes all of these; none are ours to call.
+- ❌ NEVER add a `create` / `update` / `delete` method to `clients/emabler.py`,
+  and never bypass `EmablerClient` with a raw `requests` call to an eMabler URL.
+- ✅ `EmablerClient` only exposes `get` / `get_all_pages`, and its session
+  (`_ReadOnlySession`) raises `EmablerWriteBlocked` on any non-GET request.
+  That guard is a safety net — treat it as load-bearing and never relax it.
+- ✅ Extracts land in `target` (see `sql/010_emabler_charger.sql`); all writes
+  from an eMabler workflow go to **our** database, never back to eMabler.
+
+If a real write requirement ever appears, it needs an explicit human decision
+first — not a quietly added client method.
+
 ## Migration database (`sql/`)
 
 The migration is built as **views** in the writable `target` database that reshape the

@@ -13,32 +13,37 @@ drop behaviour:
 
 | Range | Type | Description | Drop behaviour |
 |-------|------|-------------|----------------|
-| `0xx` | Mapping tables | Persistent tables holding old→new ID mappings and migration state. | **NEVER DROP** — `CREATE TABLE IF NOT EXISTS`. |
+| `00x` | Mapping tables | Persistent tables holding old→new ID mappings and migration state. | **NEVER DROP** — `CREATE TABLE IF NOT EXISTS`. |
+| `01x` | API extract tables | Persistent tables holding a snapshot of an external API, refreshed wholesale by a `ladmig <vendor> extract` command. | **NEVER DROP** — `CREATE TABLE IF NOT EXISTS`. |
 | `1xx` | Source normalization views | Views that extract/clean distinct entities from raw source tables. | Dropped & recreated. |
 | `2xx` | Shared business-logic views | Intermediate views centralising transform logic reused by target/report views. `201` is a materialized **table** (drop-and-rebuild each `ladmig build`), not a view — see its file header for why. | Dropped & recreated. |
 | `3xx` | Target views | Views producing the Ampeco-shaped payloads (one file per view). | Dropped & recreated. |
 | `4xx` | Report / quality views | Views for analysis, export and data-quality checks. | Dropped & recreated. |
 
-> **Current state:** both `0xx` mapping tables and `3xx` target views exist —
-> see the [File Inventory](#file-inventory) below. `201` is also a table (not
-> a view) as a deliberate performance exception, drop-and-rebuilt exactly
-> like the views around it.
+> **Current state:** `00x` mapping tables, `01x` extract tables and `3xx`
+> target views exist — see the [File Inventory](#file-inventory) below. `201`
+> is also a table (not a view) as a deliberate performance exception,
+> drop-and-rebuilt exactly like the views around it.
 
-## ⚠️ Never Drop Source or Mapping Tables
+## ⚠️ Never Drop Source, Mapping or Extract Tables
 
 This is the single most important rule.
 
 - **Source tables** live in the `laddel` database, which is **read-only**. The
   views reference them as `` `laddel`.`<table>` ``. Never write to or drop them.
-- **Mapping tables** (`0xx`, when they exist) store target-system IDs and
+- **Mapping tables** (`00x`) store target-system IDs and
   migration state. Dropping one loses the link between old and new records.
   - Create with `CREATE TABLE IF NOT EXISTS`.
   - Add columns with a guarded `ALTER TABLE` (MySQL 8 has **no**
     `ADD COLUMN IF NOT EXISTS`, so check `information_schema` first or accept
     a re-run error — never `DROP` + recreate).
+- **Extract tables** (`01x`) follow the same create/alter rules. Their *rows*
+  are disposable (an extract command replaces them all), but the table itself
+  must survive a `ladmig build`, which must never silently discard a snapshot
+  that costs an API walk to rebuild.
 
 `ladmig build` never drops anything itself. The drop/recreate behaviour lives
-entirely in each individual SQL file, so write `0xx` files defensively.
+entirely in each individual SQL file, so write `00x` and `01x` files defensively.
 
 ## Conventions
 
@@ -88,6 +93,63 @@ so ordering among the `3xx` files is not yet significant.)
 | `004_sitetracker_site_mapping.sql` | `target.sitetracker_site_mapping` | `sitetracker_sites` step |
 | `005_sitetracker_site_relation_mapping.sql` | `target.sitetracker_site_relation_mapping` | `sitetracker_site_relations` step |
 | `006_partner_contract_mapping.sql` | `target.partner_contract_mapping` | `partner_contracts` step |
+| `007_charge_point_mapping.sql` | `target.charge_point_mapping` | `charge_points` step (carries adoption columns) |
+
+### 01x — API Extract Tables
+
+| File | Table | Written by |
+|------|-------|------------|
+| `010_emabler_charger.sql` | `target.emabler_charger` | `ladmig emabler extract chargers` |
+
+`emabler_charger` is a snapshot of the eMabler Entity Management API's
+`GET /v2/chargers` (schema `chargerDto`). It exists because `laddel` records
+the OCPP protocol version nowhere in its 114 tables, so
+`301_target_charge_points.sql` has to hardcode `network.protocol = 'ocpp 1.6'`;
+the real per-charger value is `chargerDto.ocppVersion`, mirrored here as
+`ocpp_version`.
+
+Scalar fields become typed columns; the nested arrays/objects (`sockets`,
+`location`, `chargerConfigurations`, ...) stay in the `raw_json` passthrough so
+they can be reached with MySQL JSON functions without re-running the extract.
+Join back to the source on `charger_id` → `laddel.charger.ocpp_id` and
+`site_id` → `laddel.facility.emabler_id`.
+
+```powershell
+uv run ladmig emabler extract chargers             # refresh the snapshot
+uv run ladmig emabler extract chargers --dry-run   # fetch and summarise only
+```
+
+The command fetches every page into memory, then swaps the table contents in a
+single transaction (`DELETE` + `INSERT`, never `TRUNCATE` — that is DDL in
+MySQL and would implicitly commit), so a mid-run failure keeps the previous
+snapshot.
+
+Two API facts worth knowing before using `ocpp_version` (both verified live on
+2026-09-10):
+
+- `docs/emabler-entity.json` declares `ocppVersion` as an **int** enum (0-3),
+  but the API returns the enum **names** as strings (`Unknown`, `Version16`,
+  `Version201`). The column is `VARCHAR` and stores whatever arrives, verbatim.
+- Roughly 7% of chargers report `Unknown`, so any decode downstream needs a
+  fallback rather than assuming every charger reports a protocol.
+
+Joining back to the source **requires an explicit collation** — the `laddel`
+columns are `utf8mb4_unicode_ci` while the connection is `utf8mb4_0900_ai_ci`,
+so a bare `=` raises errno 1267:
+
+```sql
+JOIN `target`.`emabler_charger` e
+  ON e.charger_id COLLATE utf8mb4_0900_ai_ci
+   = c.ocpp_id    COLLATE utf8mb4_0900_ai_ci
+```
+
+Note the grain difference: eMabler's `chargerId` identifies the **physical
+box**, whereas `laddel`.`charger` holds one row per **EVSE/socket**, so the
+join fans out (one eMabler row can match several `laddel` chargers). That is
+expected — the protocol is a property of the box.
+
+The snapshot reflects whichever tenant `EMABLER_V2_API_URL` / `EMABLER_V2_API_KEY`
+point at. Re-run the extract whenever those change.
 
 ### 2xx — Shared Business-Logic Tables/Views
 

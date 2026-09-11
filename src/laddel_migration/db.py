@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import contextlib
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 
 import pymysql
 from pymysql.constants import CLIENT
@@ -133,6 +133,54 @@ def write_mapping(
             f"Mapping write to `{table}` failed ({values}): {exc} - "
             f"halting to prevent orphaned resources."
         ) from exc
+
+
+def replace_table_rows(
+    settings: DatabaseSettings,
+    table: str,
+    columns: Sequence[str],
+    rows: Sequence[Sequence[object]],
+    *,
+    batch_size: int = 500,
+) -> int:
+    """Atomically replace every row of ``table`` with ``rows``. Returns the count.
+
+    Used by the API extract commands, whose tables are wholesale snapshots of an
+    external system rather than accumulated migration state.
+
+    The delete and all inserts run in **one transaction**, so a failure midway
+    rolls back to the previous snapshot instead of leaving the table half
+    loaded. This is why the delete is ``DELETE FROM`` and not ``TRUNCATE``:
+    ``TRUNCATE`` is DDL in MySQL and implicitly commits, which would discard the
+    old snapshot before the new one is known to be good.
+
+    ``table`` and ``columns`` are internal, trusted identifiers (backtick
+    quoted); every value is bound by the driver as a ``%s`` placeholder.
+    """
+    column_sql = ", ".join(f"`{c}`" for c in columns)
+    placeholders = ", ".join(["%s"] * len(columns))
+    insert_sql = f"INSERT INTO `{table}` ({column_sql}) VALUES ({placeholders})"
+    logger.debug(
+        "Replacing all rows of `%s`@%s with %d row(s)", table, settings.database, len(rows)
+    )
+
+    with connect(settings) as conn, conn.cursor() as cursor:
+        try:
+            conn.begin()
+            cursor.execute(f"DELETE FROM `{table}`")
+            deleted = cursor.rowcount
+            inserted = 0
+            for start in range(0, len(rows), batch_size):
+                batch = [tuple(row) for row in rows[start : start + batch_size]]
+                cursor.executemany(insert_sql, batch)
+                inserted += len(batch)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+
+    logger.info("Replaced %d row(s) in `%s` with %d row(s)", deleted, table, inserted)
+    return inserted
 
 
 def execute_script(settings: DatabaseSettings, sql_text: str) -> None:

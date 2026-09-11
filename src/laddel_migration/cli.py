@@ -23,6 +23,10 @@ from .cli_sitetracker import sitetracker_app  # noqa: E402
 
 app.add_typer(sitetracker_app, name="sitetracker")
 
+from .cli_emabler import emabler_app  # noqa: E402
+
+app.add_typer(emabler_app, name="emabler")
+
 logger = get_logger(__name__)
 
 # Default directory (relative to the current working directory) holding the
@@ -57,6 +61,11 @@ KEY_VIEWS: tuple[str, ...] = (
 # reachable and the token is accepted. The Ampeco API has no dedicated ping/health
 # endpoint, so we reuse the partners listing (returns 200 even with zero partners).
 _AMPECO_PING_PATH = "/public-api/resources/partners/v2.0"
+
+# A cheap authenticated GET used by ``ladmig test`` to confirm the eMabler API
+# is reachable and the x-api-key is accepted. eMabler has no ping endpoint, so
+# we ask the chargers listing for a single record.
+_EMABLER_PING_PATH = "/v2/chargers"
 
 
 # The logging level chosen by the root callback, reused by commands that add a
@@ -94,7 +103,7 @@ def status() -> None:
 
 @app.command()
 def test() -> None:
-    """Check connectivity to the configured MySQL databases (and SiteTracker)."""
+    """Check connectivity to the configured MySQL databases and APIs."""
     settings = load_settings()
     failures = 0
     for label, db in (("source", settings.source_db), ("target", settings.target_db)):
@@ -133,6 +142,20 @@ def test() -> None:
             typer.echo(f"OK   ampeco: {am.safe_base_url}")
         except Exception as exc:  # noqa: BLE001 - report any API error to the user
             typer.echo(f"FAIL ampeco: {am.safe_base_url} -> {exc}")
+            failures += 1
+
+    # When eMabler is configured, confirm the API is reachable and the API key
+    # is accepted by fetching a single charger. Skipped silently when its
+    # credentials are not set.
+    if settings.emabler is not None:
+        from .clients.emabler import EmablerClient
+
+        em = settings.emabler
+        try:
+            EmablerClient(em).get(_EMABLER_PING_PATH, params={"page": 1, "limit": 1})
+            typer.echo(f"OK   emabler: {em.safe_base_url}")
+        except Exception as exc:  # noqa: BLE001 - report any API error to the user
+            typer.echo(f"FAIL emabler: {em.safe_base_url} -> {exc}")
             failures += 1
 
     if failures:
