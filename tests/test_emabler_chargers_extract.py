@@ -140,3 +140,25 @@ def test_over_long_text_is_truncated_to_the_ddl_width() -> None:
 def test_missing_id_raises_because_it_is_the_primary_key() -> None:
     with pytest.raises(ValueError, match="no numeric 'id'"):
         to_row(_item(id=None), _EXTRACTED_AT)
+
+
+def test_dedupe_keeps_the_last_copy_of_a_repeated_charger() -> None:
+    """Offset pagination re-sends boundary rows when the fleet changes mid-walk."""
+    first = to_row(_item(id=7, state="Offline"), _EXTRACTED_AT)
+    second = to_row(_item(id=7, state="Available"), _EXTRACTED_AT)
+    other = to_row(_item(id=8), _EXTRACTED_AT)
+
+    rows, dropped = emabler_chargers.dedupe([first, other, second])
+
+    assert dropped == 1
+    assert [_field(r, "emabler_id") for r in rows] == [7, 8]
+    assert _field(rows[0], "state") == "Available"
+
+
+def test_dedupe_is_a_no_op_without_duplicates() -> None:
+    rows = [to_row(_item(id=i), _EXTRACTED_AT) for i in (1, 2, 3)]
+
+    deduped, dropped = emabler_chargers.dedupe(rows)
+
+    assert dropped == 0
+    assert deduped == rows

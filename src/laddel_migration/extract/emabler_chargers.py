@@ -50,6 +50,9 @@ COLUMNS: tuple[str, ...] = (
     "extracted_at",
 )
 
+# Position of the primary-key column within a row tuple, used by :func:`dedupe`.
+_ID_INDEX = COLUMNS.index("emabler_id")
+
 # VARCHAR widths from the DDL, so an over-long API value is truncated here (with
 # a warning) instead of failing the INSERT under MySQL strict mode.
 _WIDTHS: dict[str, int] = {
@@ -114,6 +117,28 @@ def to_row(item: dict[str, Any], extracted_at: datetime) -> tuple[object, ...]:
         json.dumps(item, ensure_ascii=False, separators=(",", ":")),
         extracted_at,
     )
+
+
+def dedupe(rows: list[tuple[object, ...]]) -> tuple[list[tuple[object, ...]], int]:
+    """Drop rows repeating an ``emabler_id``, keeping the last copy of each.
+
+    Returns ``(unique_rows, dropped_count)``.
+
+    The chargers endpoint pages by offset (``page`` / ``limit``) over a list
+    sorted by ``chargerId``. eMabler is a live system, so a charger added while
+    we are walking those ~150 pages shifts every later row along by one, and a
+    record sitting on a page boundary comes back on two consecutive pages. That
+    is a property of offset pagination, not a fault in the response — but the
+    duplicate would violate the table's primary key and abort the whole load.
+
+    The last copy wins because it was read most recently. Note the same drift
+    can also *skip* a record; nothing here can recover that, and the next
+    extract picks it up.
+    """
+    unique: dict[object, tuple[object, ...]] = {}
+    for row in rows:
+        unique[row[_ID_INDEX]] = row
+    return list(unique.values()), len(rows) - len(unique)
 
 
 def _text(value: object, column: str) -> str | None:

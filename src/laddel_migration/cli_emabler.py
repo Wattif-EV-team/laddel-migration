@@ -99,6 +99,14 @@ def chargers(
         typer.echo(f"FAIL {exc}")
         raise typer.Exit(code=1) from exc
 
+    rows, duplicates = emabler_chargers.dedupe(rows)
+    if duplicates:
+        typer.echo(
+            f"NOTE {duplicates} duplicate charger(s) dropped: the fleet changed while we "
+            "walked the pages, so a record on a page boundary was returned twice. "
+            "Kept the most recently read copy of each."
+        )
+
     _echo_summary(rows)
 
     if dry_run:

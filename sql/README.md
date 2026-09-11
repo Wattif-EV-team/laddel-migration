@@ -124,6 +124,14 @@ single transaction (`DELETE` + `INSERT`, never `TRUNCATE` — that is DDL in
 MySQL and would implicitly commit), so a mid-run failure keeps the previous
 snapshot.
 
+The snapshot is **best-effort, not point-in-time**. The endpoint pages by
+offset over a list sorted by `chargerId`, and eMabler is live, so a charger
+added during the ~150-page walk shifts every later row along by one. A record
+on a page boundary can therefore come back twice — the extract drops the
+duplicate and reports how many it dropped — and, by the same mechanism, a
+record can be skipped and only appear on the next run. Treat small run-to-run
+count wobble as normal rather than as data loss.
+
 Two API facts worth knowing before using `ocpp_version` (both verified live on
 2026-09-10):
 
